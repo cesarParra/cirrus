@@ -42,10 +42,10 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x64
-          - os: macos-latest
+          - os: macos-15
             platform: darwin
             arch: x64
-          - os: macos-latest
+          - os: macos-15
             platform: darwin
             arch: arm64
           - os: windows-latest
@@ -75,7 +75,7 @@ jobs:
         shell: bash
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cirrus-${{ matrix.platform }}-${{ matrix.arch }}
           path: cirrus-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'windows' && '.exe' || '' }}
