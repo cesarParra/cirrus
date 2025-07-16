@@ -1,0 +1,30 @@
+{
+  "name": "cirrus-for-sfdx",
+  "version": "0.0.1",
+  "description": "Cirrus CLI tool",
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cesarParra/cirrus"
+  },
+  "keywords": [
+    "cirrus",
+    "cli"
+  ],
+  "bin": {
+    "cirrus": "./bin/cirrus"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if version changed
+        id: check
+        run: |
+          # Get the version from pubspec.yaml
+          VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: //')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Check if a tag with this version already exists
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Version v$VERSION already exists"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version v$VERSION detected"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-release:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+          - os: windows-latest
+            platform: windows
+            arch: x64
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      
+      - name: Install dependencies
+        run: dart pub get
+      
+      - name: Build binary
+        run: |
+          # Set architecture-specific flags for macOS
+          if [[ "${{ matrix.platform }}" == "darwin" && "${{ matrix.arch }}" == "arm64" ]]; then
+            export DART_COMPILE_EXE_OPTIONS="--target-os=macos-arm64"
+          elif [[ "${{ matrix.platform }}" == "darwin" && "${{ matrix.arch }}" == "x64" ]]; then
+            export DART_COMPILE_EXE_OPTIONS="--target-os=macos-x64"
+          fi
+          
+          dart compile exe bin/cirrus.dart -o cirrus-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'windows' && '.exe' || '' }}
+        shell: bash
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cirrus-${{ matrix.platform }}-${{ matrix.arch }}
+          path: cirrus-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'windows' && '.exe' || '' }}
+
+  create-release:
+    needs: [check-version, build-and-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          release_name: Release v${{ needs.check-version.outputs.version }}
+          body: |
+            Cirrus CLI v${{ needs.check-version.outputs.version }}
+            
+            ## Installation
+            
+            ### Using npm/npx
+            ```bash
+            npm install -g cirrus-for-sfdx
+            # or use directly with npx
+            npx cirrus-for-sfdx
+            ```
+            
+            ### Manual Download
+            Download the appropriate binary for your platform from the assets below.
+          draft: false
+          prerelease: false
+      
+      - name: Upload Release Assets
+        run: |
+          for artifact in artifacts/*; do
+            if [ -d "$artifact" ]; then
+              for file in "$artifact"/*; do
+                echo "Uploading $file"
+                asset_name=$(basename "$file")
+                curl -X POST \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary @"$file" \
+                  "${{ steps.create_release.outputs.upload_url }}?name=$asset_name&label=$asset_name"
+              done
+            fi
+          done
+
+  publish-npm:
+    needs: [check-version, create-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Update package.json version
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          npm version $VERSION --no-git-tag-version
+      
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

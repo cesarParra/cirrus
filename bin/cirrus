@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+const platform = process.platform;
+const arch = process.arch;
+
+// Map Node.js platform names to our binary naming convention
+const platformMap = {
+  'darwin': 'darwin',
+  'linux': 'linux',
+  'win32': 'windows'
+};
+
+const binaryName = `cirrus-${platformMap[platform]}-${arch}${platform === 'win32' ? '.exe' : ''}`;
+const binaryPath = path.join(__dirname, '..', 'binaries', binaryName);
+
+if (!fs.existsSync(binaryPath)) {
+  console.error(`Binary not found for platform: ${platform}-${arch}`);
+  console.error(`Expected binary at: ${binaryPath}`);
+  console.error('Please run npm install again or file an issue.');
+  process.exit(1);
+}
+
+// Spawn the binary with all provided arguments
+const child = spawn(binaryPath, process.argv.slice(2), { 
+  stdio: 'inherit',
+  windowsHide: true 
+});
+
+child.on('error', (err) => {
+  console.error('Failed to start cirrus:', err);
+  process.exit(1);
+});
+
+child.on('exit', (code) => {
+  process.exit(code || 0);
+});
