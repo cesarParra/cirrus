@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   check-version:
     runs-on: ubuntu-latest
@@ -42,10 +46,10 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x64
-          - os: macos-15
+          - os: macos-latest
             platform: darwin
             arch: x64
-          - os: macos-15
+          - os: macos-latest
             platform: darwin
             arch: arm64
           - os: windows-latest
@@ -92,42 +96,48 @@ jobs:
           path: artifacts
       
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ needs.check-version.outputs.version }}
-          release_name: Release v${{ needs.check-version.outputs.version }}
-          body: |
-            Cirrus CLI v${{ needs.check-version.outputs.version }}
-            
-            ## Installation
-            
-            ### Using npm/npx
-            ```bash
-            npm install -g cirrus-for-sfdx
-            # or use directly with npx
-            npx cirrus-for-sfdx
-            ```
-            
-            ### Manual Download
-            Download the appropriate binary for your platform from the assets below.
-          draft: false
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          
+          # Create release notes
+          cat > release-notes.md << EOF
+          Cirrus CLI v${VERSION}
+          
+          ## Installation
+          
+          ### Using npm/npx
+          \`\`\`bash
+          npm install -g cirrus-cli
+          # or use directly with npx
+          npx cirrus-cli
+          \`\`\`
+          
+          ### Manual Download
+          Download the appropriate binary for your platform from the assets below.
+          EOF
+          
+          # Create the release
+          gh release create "v${VERSION}" \
+            --title "Release v${VERSION}" \
+            --notes-file release-notes.md \
+            --target main
       
       - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          
+          # Upload all artifacts to the release
           for artifact in artifacts/*; do
             if [ -d "$artifact" ]; then
               for file in "$artifact"/*; do
                 echo "Uploading $file"
-                asset_name=$(basename "$file")
-                curl -X POST \
-                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary @"$file" \
-                  "${{ steps.create_release.outputs.upload_url }}?name=$asset_name&label=$asset_name"
+                gh release upload "v${VERSION}" "$file" --clobber
               done
             fi
           done
