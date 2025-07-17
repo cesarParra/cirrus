@@ -1,6 +1,6 @@
 # Cirrus CLI
 
-A powerful command-line interface tool for Salesforce development automation.
+A lean command-line interface tool for Salesforce development automation.
 
 ## Installation
 
@@ -27,7 +27,6 @@ cirrus <command> [options]
 ### Available Commands
 
 ```bash
-cirrus hello    # Prints "World!"
 cirrus --help   # Show help information
 cirrus --version # Show version information
 ```
