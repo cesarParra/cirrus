@@ -1,19 +1,20 @@
-import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'src/run.dart';
+import 'dart:io';
 
 const String version = '0.0.3';
 
-void printUsage(ArgParser argParser) {
-  print('Usage: dart cirrus.dart <flags> [arguments]');
-  print(argParser.usage);
-}
+Future<void> main(List<String> arguments) async {
+  final runner = CommandRunner(
+    "cirrus",
+    "A lean command-line interface tool for Salesforce development automation.",
+  )..addCommand(RunCommand());
 
-void main(List<String> arguments) {
-  CommandRunner(
-      "cirrus",
-      "A lean command-line interface tool for Salesforce development automation.",
-    )
-    ..addCommand(RunCommand())
-    ..run(arguments);
+  try {
+    await runner.run(arguments);
+  } on UsageException catch (e) {
+    stderr.writeln(e.message);
+    print('');
+    runner.printUsage();
+  }
 }
