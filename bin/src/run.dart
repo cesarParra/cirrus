@@ -8,7 +8,7 @@ class RunCommand extends Command {
   @override
   String get description => 'Runs a standalone command';
 
-  RunCommand() {
+  RunCommand(Map<String, dynamic> config) {
     addSubcommand(CreateScratchCommand());
   }
 }
@@ -56,9 +56,6 @@ class CreateScratchCommand extends Command {
 
   @override
   Future<void> run() async {
-    // print('about to run create_scratch');
-    // print(argResults!.option("file"));
-    // print('going to run ${argResults?.arguments ?? 'no args'}');
-    await cli.run('sf org scratch create', args: argResults?.arguments);
+    //await cli.run('sf org scratch create', args: argResults?.arguments);
   }
 }
