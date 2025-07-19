@@ -26,7 +26,6 @@ class RunCommand extends Command {
 
 // Default run commands
 
-// TODO: Alias support
 // TODO: Set default support
 // TODO: Target devhub support
 class ScratchOrgDefinition {
@@ -55,12 +54,14 @@ class CreateScratchCommand extends Command {
   String get description => 'Creates a scratch org.';
 
   CreateScratchCommand(this.definitions) {
-    argParser.addOption(
-      'name',
-      abbr: 'n',
-      mandatory: true,
-      help: 'The name of the scratch org definition to create',
-    );
+    argParser
+      ..addOption(
+        'name',
+        abbr: 'n',
+        mandatory: true,
+        help: 'The name of the scratch org definition to create',
+      )
+      ..addOption('alias', abbr: 'a', help: 'Alias for the scratch org.');
   }
 
   @override
@@ -72,7 +73,12 @@ class CreateScratchCommand extends Command {
 
     switch (orgDefinition) {
       case Some(:final value):
-        final command = build(value);
+        final additionalArguments = <(String, String)>[];
+        if (argResults?.option('alias') != null) {
+          additionalArguments.add(('alias', argResults!.option('alias')!));
+        }
+
+        final command = build(value, additionalArguments);
         print(chalk.green('Running: $command'));
         await cli.run(command);
       case None():
@@ -80,9 +86,16 @@ class CreateScratchCommand extends Command {
     }
   }
 
-  String build(ScratchOrgDefinition orgDefinition) {
-    final root =
+  String build(
+    ScratchOrgDefinition orgDefinition,
+    List<(String, String)> additionalArguments,
+  ) {
+    var root =
         'sf org scratch create --definition-file=${orgDefinition.definitionFile}';
+
+    for (final additionalArgument in additionalArguments) {
+      root = '$root --${additionalArgument.$1}=${additionalArgument.$2}';
+    }
 
     if (orgDefinition.duration == null) {
       return root;
