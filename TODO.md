@@ -1,8 +1,9 @@
-// TODO: Commands to implement
-// `cirrus run deploy` - Runs sf project deploy start
-
-// `cirrus run install_dependencies` - Come up with a better way to automate dependency installation
-// e.g. use the script I have to grab the 04t out of the 0HO, and ability to provide installation keys
-// through environment variables.
-
-// `cirrus run test`
+- [ ] Ability to define and create orgs
+- [ ] Ability to define and run any random command
+- [ ] Ability to run a sequence of commands
+- [ ] Ability to run any `sf` command
+- [ ] Ability to release new versions of packages
+- [ ] Ability to promote versions of packages
+- [ ] Ability to "pipe" things in the flows using the information from the previous result.
+      For example, release a new version of the package, and get the packageId to then promote it
+- [ ] Ability to define caches for commands
