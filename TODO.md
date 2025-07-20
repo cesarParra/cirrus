@@ -1,7 +1,7 @@
 - [ ] Ability to define and create orgs
-- [ ] Ability to define and run any random command
+- [x] Ability to define and run any random command
 - [ ] Ability to run `--version`. This should be runnable regardless of wether the toml exists or not.
-- [ ] Ability to run an `init` command that initializes the cirrus.toml file.
+- [x] Ability to run an `init` command that initializes the cirrus.toml file.
 - [ ] Ability to run a sequence of commands
 - [ ] Ability to run any `sf` command
 - [ ] Ability to release new versions of packages
