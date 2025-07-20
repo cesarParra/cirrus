@@ -148,7 +148,35 @@ main() {
       expect(runner.args, contains('--duration-days=30'));
     });
 
-    // TODO: Test for when the toml does not have the org configured
+    test('errors when the org is not defined in the cirrus.toml file', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n non_existent_org'.toArguments(),
+        configFileName: "",
+        cliRunner: (String command) async {},
+        parser,
+        logger: logger,
+      );
+
+      expect(logger.errors, hasLength(1));
+      expect(
+        logger.errors.first,
+        contains(
+          "The org 'non_existent_org' is not defined in the cirrus.toml file.",
+        ),
+      );
+      expect(logger.messages, isEmpty);
+    });
   });
 
   // TODO: Generic commands
