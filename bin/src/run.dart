@@ -245,11 +245,17 @@ class FlowCommand extends Command {
 
   @override
   Either<String, String> run() {
-    if (subcommands.isEmpty) {
-      return Left('There are no defined flows');
+    switch (config) {
+      case Left(:final value):
+        throw value;
+      case _:
+        if (parsedSubcommands.isEmpty) {
+          return Left('No flows defined in the config file.');
+        }
+        return Right(
+          'Available flows: ${parsedSubcommands.map((e) => e.name).join(', ')}',
+        );
     }
-
-    return Left('Please provide the flow name you wish to run.');
   }
 }
 

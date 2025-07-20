@@ -81,7 +81,7 @@ class TestRunner {
   List<String> args = [];
 
   Future<void> run(String command) async {
-    args = command.toArguments();
+    args.addAll(command.toArguments());
   }
 }
 
@@ -397,6 +397,103 @@ main() {
         isNotEmpty,
         reason: "Expected the 'usage' message to be printed",
       );
+    });
+  });
+
+  group('flows', () {
+    test('errors when trying to run a flow that does not exist', () {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [commands]
+          hello = "echo 'Hello, World!'"
+
+          [flow.test]
+          description = "Test flow"
+          steps = [{ type = "command", name = "hello" }]
+          """).toMap();
+      }
+
+      final logger = TestLogger();
+
+      run(
+        'flow my_non_existent_flow'.toArguments(),
+        configFileName: "",
+        cliRunner: (String command) async {},
+        parser,
+        logger: logger,
+      ).then((_) {
+        expect(logger.errors, hasLength(1));
+        expect(
+          logger.errors.first,
+          contains("Could not find a subcommand named"),
+        );
+        expect(
+          logger.messages,
+          isNot(isEmpty),
+          reason: "Expected the 'usage' message to be printed",
+        );
+      });
+    });
+
+    test('runs a flow with a single command', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [commands]
+          hello = "echo 'Hello, World!'"
+
+          [flow.test]
+          description = "Test flow"
+          steps = [{ type = "command", name = "hello" }]
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'flow test'.toArguments(),
+        configFileName: "",
+        cliRunner: runner.run,
+        parser,
+        logger: logger,
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('echo'));
+      expect(runner.args, contains('Hello, World!'));
+    });
+
+    test('runs a flow with multiple steps', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [commands]
+          hello = "echo 'Hello, World!'"
+          goodbye = "echo 'Goodbye, World!'"
+
+          [flow.test]
+          description = "Test flow"
+          steps = [
+            { type = "command", name = "hello" },
+            { type = "command", name = "goodbye" }
+          ]
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'flow test'.toArguments(),
+        configFileName: "",
+        cliRunner: runner.run,
+        parser,
+        logger: logger,
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('echo'));
+      expect(runner.args, contains('Hello, World!'));
+      expect(runner.args, contains('Goodbye, World!'));
     });
   });
 }
