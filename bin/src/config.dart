@@ -33,6 +33,9 @@ sealed class FlowStep {
     return switch (unparsed) {
       {'type': 'create_scratch', 'org': String orgName} =>
         CreateScratchFlowStep(orgName, unparsed['set-default']),
+      {'type': 'command', 'name': String commandName} => RunCommandFlowStep(
+        commandName,
+      ),
       _ => throw 'Unable to determine the type of flow step $unparsed',
     };
   }
@@ -43,6 +46,12 @@ class CreateScratchFlowStep extends FlowStep {
   final bool? setDefault;
 
   CreateScratchFlowStep(this.orgName, this.setDefault);
+}
+
+class RunCommandFlowStep extends FlowStep {
+  final String commandName;
+
+  RunCommandFlowStep(this.commandName);
 }
 
 class Flow {
