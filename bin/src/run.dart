@@ -192,12 +192,20 @@ class CreateScratchCommand extends Command {
   String get description => 'Creates a scratch org.';
 
   CreateScratchCommand(this.definitions, {required this.cliRunner}) {
-    argParser.addOption(
-      'name',
-      abbr: 'n',
-      mandatory: true,
-      help: 'The name of the scratch org definition to create',
-    );
+    argParser
+      ..addOption(
+        'name',
+        abbr: 'n',
+        mandatory: true,
+        help: 'The name of the scratch org definition to create',
+      )
+      ..addFlag(
+        'set-default',
+        abbr: 'd',
+        defaultsTo: true,
+        negatable: true,
+        help: 'Set the created scratch org as the default org.',
+      );
   }
 
   @override
@@ -222,7 +230,11 @@ class CreateScratchCommand extends Command {
       case Some(:final value):
         final additionalArguments = <(String, String)>[('alias', value.name)];
 
-        final command = build(value, additionalArguments);
+        final command = build(
+          value,
+          additionalArguments,
+          setDefault: argResults?.flag('set-default') ?? true,
+        );
         await cliRunner(command);
         return Right('Scratch org created successfully.');
       case None():
@@ -234,13 +246,18 @@ class CreateScratchCommand extends Command {
 
   String build(
     ScratchOrgDefinition orgDefinition,
-    List<(String, String)> additionalArguments,
-  ) {
+    List<(String, String)> additionalArguments, {
+    required bool setDefault,
+  }) {
     var root =
         'sf org scratch create --definition-file=${orgDefinition.definitionFile}';
 
     for (final additionalArgument in additionalArguments) {
       root = '$root --${additionalArgument.$1}=${additionalArgument.$2}';
+    }
+
+    if (setDefault) {
+      root = '$root --set-default';
     }
 
     if (orgDefinition.duration == null) {
