@@ -21,6 +21,12 @@ class RunCommand extends Command {
     };
 
     addSubcommand(CreateScratchCommand(orgDefinitions));
+
+    if (config['commands'] is Map<String, dynamic>) {
+      for (var MapEntry(:key, :value) in config['commands'].entries) {
+        addSubcommand(RunNamedCommand(key, value));
+      }
+    }
   }
 }
 
@@ -35,7 +41,7 @@ class ScratchOrgDefinition {
 
   ScratchOrgDefinition(this.name, this.definitionFile, [this.duration]);
 
-  static ScratchOrgDefinition parse(dynamic def) {
+  factory ScratchOrgDefinition.parse(dynamic def) {
     return switch (def) {
       {"name": String name, "definitionFile": String definitionFile} =>
         ScratchOrgDefinition(name, definitionFile, def['duration']),
@@ -102,6 +108,23 @@ class CreateScratchCommand extends Command {
     }
 
     return '$root --duration-days=${orgDefinition.duration}';
+  }
+}
+
+class RunNamedCommand extends Command {
+  @override
+  final String name;
+
+  final String command;
+
+  @override
+  String get description => 'Execute the $name command.';
+
+  RunNamedCommand(this.name, this.command);
+
+  @override
+  Future<void> run() async {
+    await cli.run(command);
   }
 }
 
