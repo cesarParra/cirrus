@@ -204,16 +204,18 @@ class CreateScratchCommand extends Command {
   }
 
   @override
-  Future<void> run() async {
+  Future<Either<String, String>> run() async {
     switch (definitions) {
       case Left(:final value):
-        throw 'Error parsing the cirrus.toml file: $value';
+        return Left('Error parsing the cirrus.toml file: $value');
       case Right(:final value):
-        execute(value);
+        return await execute(value);
     }
   }
 
-  Future<void> execute(List<ScratchOrgDefinition> configs) async {
+  Future<Either<String, String>> execute(
+    List<ScratchOrgDefinition> configs,
+  ) async {
     final orgName = argResults?.option('name') ?? '';
     final orgDefinition = configs.firstWhereOrOption(
       (def) => def.name == orgName,
@@ -227,10 +229,12 @@ class CreateScratchCommand extends Command {
         }
 
         final command = build(value, additionalArguments);
-        print(chalk.green('Running: $command'));
         await cliRunner(command);
+        return Right('Scratch org created successfully.');
       case None():
-        throw 'The org "$orgName" is not defined in the cirrus.toml file.';
+        return Left(
+          "The org '$orgName' is not defined in the cirrus.toml file.\r\nThese are the available orgs: ${configs.map((e) => e.name).join(', ')}",
+        );
     }
   }
 
