@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:test/test.dart';
+import 'package:toml/toml.dart';
 
 import '../bin/src/run.dart';
 
@@ -28,6 +29,14 @@ class TestLogger implements Logger {
   @override
   success(String message) {
     successes.add(message);
+  }
+}
+
+class TestRunner {
+  List<String> args = [];
+
+  Future<void> run(String command) async {
+    args = command.split(' ');
   }
 }
 
@@ -106,7 +115,40 @@ main() {
       expect(logger.messages, isEmpty);
     });
 
-    // TODO: Positive tests
+    test('runs teh sf org scratch create command', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n default'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('sf'));
+      expect(runner.args, contains('org'));
+      expect(runner.args, contains('scratch'));
+      expect(runner.args, contains('create'));
+      expect(
+        runner.args,
+        contains('--definition-file=config/project-scratch-def.json'),
+      );
+      expect(runner.args, contains('--duration-days=30'));
+    });
+
+    // TODO: Test for when the toml does not have the org configured
   });
 
   // TODO: Generic commands

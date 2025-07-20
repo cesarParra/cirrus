@@ -7,6 +7,7 @@ import 'package:fpdart/fpdart.dart';
 import 'init_template.dart';
 
 typedef ConfigParser = Map<String, dynamic> Function();
+typedef CliRunner = Future<void> Function(String);
 
 abstract class Logger {
   error(String errorMessage);
@@ -37,6 +38,7 @@ class StdIOLogger implements Logger {
 Future<void> run(
   List<String> arguments,
   ConfigParser parser, {
+  CliRunner cliRunner = cli.run,
   required String configFileName,
   Logger logger = const StdIOLogger(),
 }) async {
@@ -52,7 +54,7 @@ Future<void> run(
             "A lean command-line interface tool for Salesforce development automation.",
           )
           ..addCommand(InitCommand(configFileName))
-          ..addCommand(RunCommand(configFile)),
+          ..addCommand(RunCommand(configFile, cliRunner: cliRunner)),
     (error, _) => 'Unexpected error: $error',
   );
 
@@ -112,15 +114,21 @@ class RunCommand extends Command {
   @override
   String get description => 'Runs a standalone command';
 
-  RunCommand(Either<String, Map<String, dynamic>> config) {
+  RunCommand(
+    Either<String, Map<String, dynamic>> config, {
+    required CliRunner cliRunner,
+  }) {
     // Parse the config file to pass the necessary information
     // each individual command need
 
-    addCreateScratchSubcommand(config);
-    addConfiguredSubcommands(config);
+    addCreateScratchSubcommand(config, cliRunner: cliRunner);
+    addConfiguredSubcommands(config, cliRunner: cliRunner);
   }
 
-  void addCreateScratchSubcommand(Either<String, Map<String, dynamic>> config) {
+  void addCreateScratchSubcommand(
+    Either<String, Map<String, dynamic>> config, {
+    required CliRunner cliRunner,
+  }) {
     Either<String, List<ScratchOrgDefinition>> orgDefinitions =
         switch (config) {
           Left(:final value) => Left(value),
@@ -133,17 +141,20 @@ class RunCommand extends Command {
           ),
         };
 
-    addSubcommand(CreateScratchCommand(orgDefinitions));
+    addSubcommand(CreateScratchCommand(orgDefinitions, cliRunner: cliRunner));
   }
 
-  void addConfiguredSubcommands(Either<String, Map<String, dynamic>> config) {
+  void addConfiguredSubcommands(
+    Either<String, Map<String, dynamic>> config, {
+    required CliRunner cliRunner,
+  }) {
     switch (config) {
       case Left():
         return;
       case Right(:final value):
         if (value['commands'] is Map<String, dynamic>) {
           for (var MapEntry(:key, :value) in value['commands'].entries) {
-            addSubcommand(RunNamedCommand(key, value));
+            addSubcommand(RunNamedCommand(key, value, cliRunner: cliRunner));
           }
         }
     }
@@ -172,6 +183,7 @@ class ScratchOrgDefinition {
 
 class CreateScratchCommand extends Command {
   final Either<String, List<ScratchOrgDefinition>> definitions;
+  final CliRunner cliRunner;
 
   @override
   final name = 'create_scratch';
@@ -179,7 +191,7 @@ class CreateScratchCommand extends Command {
   @override
   String get description => 'Creates a scratch org.';
 
-  CreateScratchCommand(this.definitions) {
+  CreateScratchCommand(this.definitions, {required this.cliRunner}) {
     argParser
       ..addOption(
         'name',
@@ -187,6 +199,7 @@ class CreateScratchCommand extends Command {
         mandatory: true,
         help: 'The name of the scratch org definition to create',
       )
+      // TODO: Instead of supporting alias, just use the name of the config org, since this is the most common use case.
       ..addOption('alias', abbr: 'a', help: 'Alias for the scratch org.');
   }
 
@@ -215,7 +228,7 @@ class CreateScratchCommand extends Command {
 
         final command = build(value, additionalArguments);
         print(chalk.green('Running: $command'));
-        await cli.run(command);
+        await cliRunner(command);
       case None():
         throw 'The org "$orgName" is not defined in the cirrus.toml file.';
     }
@@ -246,14 +259,16 @@ class RunNamedCommand extends Command {
 
   final String command;
 
+  final CliRunner cliRunner;
+
   @override
   String get description => 'Execute the $name command.';
 
-  RunNamedCommand(this.name, this.command);
+  RunNamedCommand(this.name, this.command, {required this.cliRunner});
 
   @override
   Future<void> run() async {
-    await cli.run(command);
+    await cliRunner(command);
   }
 }
 
