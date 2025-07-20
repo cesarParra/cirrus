@@ -5,7 +5,7 @@ Future<Either<String, String>> runCreateScratch(
   Future<void> Function(String) cliRunner,
   Either<String, Config> config,
   String orgDefinitionName, {
-  bool setDefault = true,
+  required bool setDefault,
 }) async {
   switch (config) {
     case Left(:final value):
