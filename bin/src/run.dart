@@ -273,7 +273,9 @@ class NamedFlowCommand extends Command {
   @override
   Future<Either<String, String>> run() async {
     for (final step in flow.steps) {
-      Either<String, String> result = await runStep(step);
+      Either<String, String> result = (await runStep(
+        step,
+      )).map((_) => 'Success');
       if (result.isLeft()) {
         return result;
       }
@@ -282,14 +284,38 @@ class NamedFlowCommand extends Command {
     return Right('Finished running flow $name.');
   }
 
-  Future<Either<String, String>> runStep(FlowStep step) async {
+  Future<Either<String, void>> runStep(FlowStep step) async {
     return switch (step) {
-      CreateScratchFlowStep() => runCreateScratch(
+      CreateScratchFlowStep() => await runCreateScratch(
         cliRunner,
         Right(config),
         step.orgName,
         setDefault: step.setDefault ?? true,
       ),
+      RunCommandFlowStep() => await runCommand(step.commandName),
+    };
+  }
+
+  Future<Either<String, void>> runCommand(String commandName) async {
+    final command = config.commands.firstWhereOrOption(
+      (command) => command.name == commandName,
+    );
+
+    Future<Either<String, void>> runCommand(String command) async {
+      try {
+        await cliRunner(command);
+        return Right(null);
+      } catch (e) {
+        return Left('$e');
+      }
+    }
+
+    // TODO: Instead of bombing in the middle of the flow, there
+    // should be an initial validation to make sure the flow is
+    // correctly configured
+    return switch (command) {
+      None() => Left('Command $commandName not found'),
+      Some(:final value) => await runCommand(value.command),
     };
   }
 }
