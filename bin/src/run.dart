@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:chalkdart/chalkdart.dart';
+import 'package:chalkdart/chalkstrings.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
 import 'init_template.dart';
@@ -23,7 +23,7 @@ class StdIOLogger implements Logger {
 
   @override
   error(String errorMessage) {
-    stderr.writeln(chalk.red(errorMessage));
+    stderr.writeln(errorMessage.red.bold);
     log("");
   }
 
@@ -34,7 +34,7 @@ class StdIOLogger implements Logger {
 
   @override
   success(String message) {
-    print(chalk.green(message));
+    print(message.green.bold);
   }
 }
 
@@ -58,7 +58,7 @@ Future<void> run(
           )
           ..addCommand(InitCommand(configFileName))
           ..addCommand(RunCommand(configFile, cliRunner: cliRunner))
-          ..addCommand(RunFlowCommand(cliRunner, configFile)),
+          ..addCommand(FlowCommand(cliRunner, configFile)),
     (error, _) => 'Unexpected error: $error',
   );
 
@@ -207,7 +207,8 @@ class RunNamedCommand extends Command {
   }
 }
 
-// TODO: Flows
+// Flows
+
 // TODO: Run create_scratch from flow
 // TODO: Run other commands from flow
 // TODO: Run string commands directly from flow
@@ -216,7 +217,7 @@ class RunNamedCommand extends Command {
 
 // TODO: Support for other types of flow steps
 
-class RunFlowCommand extends Command {
+class FlowCommand extends Command {
   final CliRunner cliRunner;
   final Either<String, Config> config;
 
@@ -226,19 +227,30 @@ class RunFlowCommand extends Command {
   @override
   String get description => 'Runs a flow defined in the config file.';
 
-  RunFlowCommand(this.cliRunner, this.config) {
-    for (final command in parsedSubcommands) {
-      addSubcommand(command);
+  FlowCommand(this.cliRunner, this.config) {
+    for (final flowCommand in parsedSubcommands) {
+      addSubcommand(flowCommand);
     }
   }
 
   List<NamedFlowCommand> get parsedSubcommands => switch (config) {
     Left() => [],
-    Right(:final value) =>
-      value.flows
-          .map((currentFlow) => NamedFlowCommand(cliRunner, currentFlow))
+    Right(value: final config) =>
+      config.flows
+          .map(
+            (currentFlow) => NamedFlowCommand(cliRunner, config, currentFlow),
+          )
           .toList(),
   };
+
+  @override
+  Either<String, String> run() {
+    if (subcommands.isEmpty) {
+      return Left('There are no defined flows');
+    }
+
+    return Left('Please provide the flow name you wish to run.');
+  }
 }
 
 // TODO: I am doing way too much parsing unecessarily. Parsing should
@@ -247,6 +259,7 @@ class RunFlowCommand extends Command {
 
 class NamedFlowCommand extends Command {
   final CliRunner cliRunner;
+  final Config config;
   final Flow flow;
 
   @override
@@ -255,11 +268,28 @@ class NamedFlowCommand extends Command {
   @override
   String get description => flow.description ?? '';
 
-  NamedFlowCommand(this.cliRunner, this.flow);
+  NamedFlowCommand(this.cliRunner, this.config, this.flow);
 
-  // TODO: Make future and await every step
   @override
-  Either<String, String> run() {
-    return Left('Not implemented');
+  Future<Either<String, String>> run() async {
+    for (final step in flow.steps) {
+      Either<String, String> result = await runStep(step);
+      if (result.isLeft()) {
+        return result;
+      }
+    }
+
+    return Right('Finished running flow $name.');
+  }
+
+  Future<Either<String, String>> runStep(FlowStep step) async {
+    return switch (step) {
+      CreateScratchFlowStep() => runCreateScratch(
+        cliRunner,
+        Right(config),
+        step.orgName,
+        setDefault: step.setDefault ?? true,
+      ),
+    };
   }
 }

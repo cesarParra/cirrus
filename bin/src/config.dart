@@ -53,7 +53,10 @@ class Flow {
   Flow(this.name, {this.description, required this.steps});
 
   factory Flow.parse(MapEntry entry) {
-    final steps = (entry.value['steps'] ?? []).map(FlowStep.parse).toList();
+    final steps = (entry.value['steps'] ?? [])
+        .map(FlowStep.parse)
+        .toList()
+        .cast<FlowStep>();
     return Flow(
       entry.key,
       description: entry.value['description'],
