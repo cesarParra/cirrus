@@ -7,7 +7,52 @@ import '../bin/src/run.dart';
 
 extension on String {
   List<String> toArguments() {
-    return split(' ');
+    final List<String> args = [];
+    final StringBuffer currentArg = StringBuffer();
+    bool inQuotes = false;
+    bool inSingleQuotes = false;
+    bool escapeNext = false;
+
+    for (int i = 0; i < length; i++) {
+      final char = this[i];
+
+      if (escapeNext) {
+        currentArg.write(char);
+        escapeNext = false;
+        continue;
+      }
+
+      if (char == '\\') {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char == '"' && !inSingleQuotes) {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (char == "'" && !inQuotes) {
+        inSingleQuotes = !inSingleQuotes;
+        continue;
+      }
+
+      if (char == ' ' && !inQuotes && !inSingleQuotes) {
+        if (currentArg.isNotEmpty) {
+          args.add(currentArg.toString());
+          currentArg.clear();
+        }
+        continue;
+      }
+
+      currentArg.write(char);
+    }
+
+    if (currentArg.isNotEmpty) {
+      args.add(currentArg.toString());
+    }
+
+    return args;
   }
 }
 
@@ -36,7 +81,7 @@ class TestRunner {
   List<String> args = [];
 
   Future<void> run(String command) async {
-    args = command.split(' ');
+    args = command.toArguments();
   }
 }
 
@@ -179,5 +224,59 @@ main() {
     });
   });
 
-  // TODO: Generic commands
+  group('generic commands', () {
+    test('can run any defined command', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [commands]
+          hello = "echo 'Hello, World!'"
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run hello'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('echo'));
+      expect(runner.args, contains('Hello, World!'));
+    });
+
+    test('errors when the command is not defined', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [commands]
+          hello = "echo 'Hello, World!'"
+          """).toMap();
+      }
+
+      final logger = TestLogger();
+
+      await run(
+        'run non_existent_command'.toArguments(),
+        configFileName: "",
+        cliRunner: (String command) async {},
+        parser,
+        logger: logger,
+      );
+
+      expect(logger.errors, hasLength(1));
+      expect(
+        logger.errors.first,
+        contains("Could not find a subcommand named"),
+      );
+      expect(
+        logger.messages,
+        isNotEmpty,
+        reason: "Expected the 'usage' message to be printed",
+      );
+    });
+  });
 }
