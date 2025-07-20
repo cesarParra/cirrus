@@ -27,11 +27,12 @@ npx cirrus-for-sfdx <command>
    cirrus init
    ```
 
-2. Edit `cirrus.toml` to define your scratch orgs and custom commands
+2. Edit `cirrus.toml` to define your scratch orgs, commands, and flows
 
-3. Run commands:
+3. Run commands or flows:
    ```bash
    cirrus run <command_name>
+   cirrus flow <flow_name>
    ```
 
 ## Usage
@@ -96,9 +97,25 @@ Any command defined in the `[commands]` section of your `cirrus.toml` can be run
 cirrus run <custom_command_name>
 ```
 
+#### `cirrus flow`
+
+Executes predefined flows from your `cirrus.toml` file.
+
+```bash
+cirrus flow <flow_name>
+```
+
+Flows allow you to orchestrate multiple commands and actions in sequence. Each step in a flow is executed one after another, and the flow stops if any step fails.
+
+Example:
+```bash
+cirrus flow setup
+cirrus flow deploy-and-test
+```
+
 ## Configuration (cirrus.toml)
 
-The `cirrus.toml` file uses [TOML format](https://toml.io/) to define scratch org configurations and custom commands.
+The `cirrus.toml` file uses [TOML format](https://toml.io/) to define scratch org configurations, custom commands, and automation flows.
 
 ### Scratch Org Definitions
 
@@ -122,6 +139,50 @@ duration = 7
 name = "testing"
 definitionFile = "config/test-scratch-def.json"
 # duration is optional, defaults to Salesforce default
+```
+
+### Flow Definitions
+
+Flows allow you to execute a sequence of steps one after another.
+
+Define flows using the `[flow]` syntax. Each flow should have:
+- `name`: A unique name for the flow
+- `description` (optional): A brief description of what the flow does
+- `steps`: A list of steps present in the flow
+
+Supported step types:
+- `create_scratch`: Creates a scratch org
+- `command`: Runs a predefined command
+
+Examples:
+
+```toml
+# Simple flow to setup and deploy
+[flow.setup]
+description = "Create scratch org and deploy metadata"
+steps = [
+  { type = "create_scratch", org = "default" },
+  { type = "command", name = "deploy" }
+]
+
+# More complex flow with multiple commands
+[flow.complete-setup]
+description = "Full environment setup with data and tests"
+steps = [
+  { type = "create_scratch", org = "dev", set-default = true },
+  { type = "command", name = "deploy" },
+  { type = "command", name = "load-sample-data" },
+  { type = "command", name = "run-tests" }
+]
+
+# Testing flow
+[flow.test]
+description = "Run all tests with coverage"
+steps = [
+  { type = "command", name = "compile" },
+  { type = "command", name = "test" },
+  { type = "command", name = "coverage-report" }
+]
 ```
 
 ### Custom Commands
