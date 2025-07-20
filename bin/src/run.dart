@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -5,6 +6,8 @@ import 'package:chalkdart/chalkdart.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
 import 'init_template.dart';
+import 'create_scratch.dart';
+import 'config.dart';
 
 typedef ConfigParser = Map<String, dynamic> Function();
 typedef CliRunner = Future<void> Function(String);
@@ -42,10 +45,10 @@ Future<void> run(
   required String configFileName,
   Logger logger = const StdIOLogger(),
 }) async {
-  final configFile = Either.tryCatch(
-    () => parser(),
-    (error, _) => "Was not able to load the cirrus.toml file.\r\n$error'",
-  );
+  final configFile = Either.tryCatch(() {
+    final unparsed = parser();
+    return Config.parse(unparsed);
+  }, (error, _) => "Was not able to load the cirrus.toml file.\r\n$error'");
 
   final runner = Either.tryCatch(
     () =>
@@ -54,7 +57,8 @@ Future<void> run(
             "A lean command-line interface tool for Salesforce development automation.",
           )
           ..addCommand(InitCommand(configFileName))
-          ..addCommand(RunCommand(configFile, cliRunner: cliRunner)),
+          ..addCommand(RunCommand(configFile, cliRunner: cliRunner))
+          ..addCommand(RunFlowCommand(cliRunner, configFile)),
     (error, _) => 'Unexpected error: $error',
   );
 
@@ -114,10 +118,7 @@ class RunCommand extends Command {
   @override
   String get description => 'Runs a standalone command';
 
-  RunCommand(
-    Either<String, Map<String, dynamic>> config, {
-    required CliRunner cliRunner,
-  }) {
+  RunCommand(Either<String, Config> config, {required CliRunner cliRunner}) {
     // Parse the config file to pass the necessary information
     // each individual command need
 
@@ -126,36 +127,22 @@ class RunCommand extends Command {
   }
 
   void addCreateScratchSubcommand(
-    Either<String, Map<String, dynamic>> config, {
+    Either<String, Config> config, {
     required CliRunner cliRunner,
   }) {
-    Either<String, List<ScratchOrgDefinition>> orgDefinitions =
-        switch (config) {
-          Left(:final value) => Left(value),
-          Right(:final value) => Right<String, List<ScratchOrgDefinition>>(
-            switch (value) {
-              {'orgs': List<dynamic> orgs} =>
-                orgs.map(ScratchOrgDefinition.parse).toList(),
-              _ => <ScratchOrgDefinition>[],
-            },
-          ),
-        };
-
-    addSubcommand(CreateScratchCommand(orgDefinitions, cliRunner: cliRunner));
+    addSubcommand(CreateScratchCommand(config, cliRunner: cliRunner));
   }
 
   void addConfiguredSubcommands(
-    Either<String, Map<String, dynamic>> config, {
+    Either<String, Config> config, {
     required CliRunner cliRunner,
   }) {
     switch (config) {
       case Left():
         return;
       case Right(:final value):
-        if (value['commands'] is Map<String, dynamic>) {
-          for (var MapEntry(:key, :value) in value['commands'].entries) {
-            addSubcommand(RunNamedCommand(key, value, cliRunner: cliRunner));
-          }
+        for (final namedCommand in value.commands) {
+          addSubcommand(RunNamedCommand(namedCommand, cliRunner: cliRunner));
         }
     }
   }
@@ -163,26 +150,8 @@ class RunCommand extends Command {
 
 // Default run commands
 
-// TODO: Set default support
-// TODO: Target devhub support
-class ScratchOrgDefinition {
-  final String name;
-  final String definitionFile;
-  final int? duration;
-
-  ScratchOrgDefinition(this.name, this.definitionFile, [this.duration]);
-
-  factory ScratchOrgDefinition.parse(dynamic def) {
-    return switch (def) {
-      {"name": String name, "definitionFile": String definitionFile} =>
-        ScratchOrgDefinition(name, definitionFile, def['duration']),
-      _ => throw 'Could not parse scratch org definition.',
-    };
-  }
-}
-
 class CreateScratchCommand extends Command {
-  final Either<String, List<ScratchOrgDefinition>> definitions;
+  final Either<String, Config> config;
   final CliRunner cliRunner;
 
   @override
@@ -191,7 +160,7 @@ class CreateScratchCommand extends Command {
   @override
   String get description => 'Creates a scratch org.';
 
-  CreateScratchCommand(this.definitions, {required this.cliRunner}) {
+  CreateScratchCommand(this.config, {required this.cliRunner}) {
     argParser
       ..addOption(
         'name',
@@ -210,89 +179,87 @@ class CreateScratchCommand extends Command {
 
   @override
   Future<Either<String, String>> run() async {
-    switch (definitions) {
-      case Left(:final value):
-        return Left('Error parsing the cirrus.toml file: $value');
-      case Right(:final value):
-        return await execute(value);
-    }
-  }
-
-  Future<Either<String, String>> execute(
-    List<ScratchOrgDefinition> configs,
-  ) async {
-    final orgName = argResults?.option('name') ?? '';
-    final orgDefinition = configs.firstWhereOrOption(
-      (def) => def.name == orgName,
+    return await runCreateScratch(
+      cliRunner,
+      config,
+      argResults?.option('name') ?? '',
+      setDefault: argResults?.flag('set-default') ?? true,
     );
-
-    switch (orgDefinition) {
-      case Some(:final value):
-        final additionalArguments = <(String, String)>[('alias', value.name)];
-
-        final command = build(
-          value,
-          additionalArguments,
-          setDefault: argResults?.flag('set-default') ?? true,
-        );
-        await cliRunner(command);
-        return Right('Scratch org created successfully.');
-      case None():
-        return Left(
-          "The org '$orgName' is not defined in the cirrus.toml file.\r\nThese are the available orgs: ${configs.map((e) => e.name).join(', ')}",
-        );
-    }
-  }
-
-  String build(
-    ScratchOrgDefinition orgDefinition,
-    List<(String, String)> additionalArguments, {
-    required bool setDefault,
-  }) {
-    var root =
-        'sf org scratch create --definition-file=${orgDefinition.definitionFile}';
-
-    for (final additionalArgument in additionalArguments) {
-      root = '$root --${additionalArgument.$1}=${additionalArgument.$2}';
-    }
-
-    if (setDefault) {
-      root = '$root --set-default';
-    }
-
-    if (orgDefinition.duration == null) {
-      return root;
-    }
-
-    return '$root --duration-days=${orgDefinition.duration}';
   }
 }
 
 class RunNamedCommand extends Command {
-  @override
-  final String name;
+  final NamedCommand command;
 
-  final String command;
+  @override
+  String get name => command.name;
 
   final CliRunner cliRunner;
 
   @override
   String get description => 'Execute the $name command.';
 
-  RunNamedCommand(this.name, this.command, {required this.cliRunner});
+  RunNamedCommand(this.command, {required this.cliRunner});
 
   @override
   Future<void> run() async {
-    await cliRunner(command);
+    await cliRunner(command.command);
   }
 }
 
-extension IterableExtestons<T> on Iterable<T> {
-  Option<T> firstWhereOrOption(Function(T) f) {
-    for (final current in this) {
-      if (f(current)) return Some(current);
-    }
+// TODO: Flows
+// TODO: Run create_scratch from flow
+// TODO: Run other commands from flow
+// TODO: Run string commands directly from flow
+// TODO: Run other flows from flow
+// TODO: Ability to use the output of one step as the input of another step
 
-    return None();
+// TODO: Support for other types of flow steps
+
+class RunFlowCommand extends Command {
+  final CliRunner cliRunner;
+  final Either<String, Config> config;
+
+  @override
+  String get name => 'flow';
+
+  @override
+  String get description => 'Runs a flow defined in the config file.';
+
+  RunFlowCommand(this.cliRunner, this.config) {
+    for (final command in parsedSubcommands) {
+      addSubcommand(command);
+    }
+  }
+
+  List<NamedFlowCommand> get parsedSubcommands => switch (config) {
+    Left() => [],
+    Right(:final value) =>
+      value.flows
+          .map((currentFlow) => NamedFlowCommand(cliRunner, currentFlow))
+          .toList(),
+  };
+}
+
+// TODO: I am doing way too much parsing unecessarily. Parsing should
+// be done at the top and return an object that has everything parsed
+// or the error string to the left side.
+
+class NamedFlowCommand extends Command {
+  final CliRunner cliRunner;
+  final Flow flow;
+
+  @override
+  String get name => flow.name;
+
+  @override
+  String get description => flow.description ?? '';
+
+  NamedFlowCommand(this.cliRunner, this.flow);
+
+  // TODO: Make future and await every step
+  @override
+  Either<String, String> run() {
+    return Left('Not implemented');
   }
 }
