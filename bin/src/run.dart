@@ -4,12 +4,14 @@ import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkdart.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
+import 'init_template.dart';
 
 typedef ConfigParser = Map<String, dynamic> Function();
 
 abstract class Logger {
   error(String errorMessage);
   log(String messageToPrint);
+  success(String message);
 }
 
 class StdIOLogger implements Logger {
@@ -25,6 +27,11 @@ class StdIOLogger implements Logger {
   log(String messageToPrint) {
     print(messageToPrint);
   }
+
+  @override
+  success(String message) {
+    print(chalk.green(message));
+  }
 }
 
 Future<void> run(
@@ -38,17 +45,29 @@ Future<void> run(
   );
 
   final runner = Either.tryCatch(
-    () => CommandRunner(
-      "cirrus",
-      "A lean command-line interface tool for Salesforce development automation.",
-    )..addCommand(RunCommand(configFile)),
+    () =>
+        CommandRunner(
+            "cirrus",
+            "A lean command-line interface tool for Salesforce development automation.",
+          )
+          ..addCommand(InitCommand())
+          ..addCommand(RunCommand(configFile)),
     (error, _) => 'Unexpected error: $error',
   );
 
   switch (runner) {
     case Right(:final value):
       try {
-        await value.run(arguments);
+        final result = await value.run(arguments);
+
+        if (result is Either<String, String>) {
+          switch (result) {
+            case Right(:final value):
+              logger.success(value);
+            case Left(:final value):
+              logger.error(value);
+          }
+        }
       } on UsageException catch (e) {
         logger.error(e.message);
         logger.log(value.usage);
@@ -58,6 +77,26 @@ Future<void> run(
 
     case Left(:final value):
       logger.error(value);
+  }
+}
+
+class InitCommand extends Command {
+  @override
+  String get name => 'init';
+
+  @override
+  String get description => 'Initializes the cirrus.toml file.';
+
+  @override
+  Either<String, String> run() {
+    final configFile = File('cirrus.toml');
+
+    if (configFile.existsSync()) {
+      return Left('cirrus.toml already exists in the current directory');
+    }
+
+    configFile.writeAsStringSync(configContent);
+    return Right('cirrus.toml created successfully');
   }
 }
 
