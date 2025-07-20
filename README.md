@@ -16,6 +16,20 @@ npm install -g cirrus-for-sfdx
 npx cirrus-for-sfdx <command>
 ```
 
+## Quick Start
+
+1. Initialize a `cirrus.toml` configuration file in your project:
+   ```bash
+   cirrus init
+   ```
+
+2. Edit `cirrus.toml` to define your scratch orgs and custom commands
+
+3. Run commands:
+   ```bash
+   cirrus run <command_name>
+   ```
+
 ## Usage
 
 After installation, you can use the `cirrus` command from anywhere in your terminal:
@@ -26,9 +40,105 @@ cirrus <command> [options]
 
 ### Available Commands
 
+#### Global Commands
+
 ```bash
-cirrus --help   # Show help information
+cirrus --help    # Show help information
 cirrus --version # Show version information
+```
+
+#### `cirrus init`
+
+Initializes a new `cirrus.toml` configuration file in the current directory.
+
+```bash
+cirrus init
+```
+
+This creates a `cirrus.toml` file with commented examples to help you get started.
+
+#### `cirrus run`
+
+Executes predefined commands from your `cirrus.toml` file.
+
+```bash
+cirrus run <subcommand> [options]
+```
+
+##### Built-in Subcommands
+
+###### `create_scratch`
+
+Creates a Salesforce scratch org based on definitions in your `cirrus.toml` file.
+
+```bash
+cirrus run create_scratch -n <org_name> [-a <alias>]
+```
+
+Options:
+- `-n, --name` (required): The name of the scratch org definition to create
+- `-a, --alias`: Optional alias for the scratch org
+
+Example:
+```bash
+cirrus run create_scratch -n default -a my-scratch-org
+```
+
+##### Custom Commands
+
+Any command defined in the `[commands]` section of your `cirrus.toml` can be run:
+
+```bash
+cirrus run <custom_command_name>
+```
+
+## Configuration (cirrus.toml)
+
+The `cirrus.toml` file uses [TOML format](https://toml.io/) to define scratch org configurations and custom commands.
+
+### Scratch Org Definitions
+
+Define scratch orgs using the `[[orgs]]` array notation. Each org must have:
+- `name`: A unique identifier for the org configuration
+- `definitionFile`: Path to the Salesforce scratch org definition JSON file
+- `duration` (optional): Number of days the scratch org should last (1-30)
+
+```toml
+[[orgs]]
+name = "default"
+definitionFile = "config/project-scratch-def.json"
+duration = 30
+
+[[orgs]]
+name = "dev"
+definitionFile = "config/dev-scratch-def.json"
+duration = 7
+
+[[orgs]]
+name = "testing"
+definitionFile = "config/test-scratch-def.json"
+# duration is optional, defaults to Salesforce default
+```
+
+### Custom Commands
+
+Define custom commands in the `[commands]` section. Each command is a key-value pair where:
+- Key: The command name (used with `cirrus run <name>`)
+- Value: The shell command to execute
+
+```toml
+[commands]
+# Simple commands
+hello = "echo 'Hello, World!'"
+status = "sf org list"
+
+# Complex commands with multiple steps
+deploy = "sf deploy source --target-org my-org"
+test = "sf apex test run --test-level RunLocalTests --code-coverage"
+
+# Commands can use shell features like pipes and redirects
+backup = "sf data export --target-org prod --output-dir ./backups"
+format = "prettier --write 'force-app/**/*.{cls,trigger,js}'"
 ```
 
 ## Platform Support
@@ -41,3 +151,15 @@ Cirrus CLI supports the following platforms:
 ## Development
 
 This CLI is built with Dart and distributed as platform-specific binaries through npm.
+
+### Running Tests
+
+```bash
+dart test
+```
+
+### Building
+
+```bash
+dart compile exe bin/cirrus.dart -o bin/cirrus
+```
