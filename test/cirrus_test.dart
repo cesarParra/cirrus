@@ -11,6 +11,7 @@ extension on String {
 class TestLogger implements Logger {
   final List<String> errors = [];
   final List<String> messages = [];
+  final List<String> successes = [];
 
   @override
   error(String errorMessage) {
@@ -21,19 +22,14 @@ class TestLogger implements Logger {
   log(String messageToPrint) {
     messages.add(messageToPrint);
   }
+
+  @override
+  success(String message) {
+    successes.add(message);
+  }
 }
 
 main() {
-  group('init', () async {
-    Map<String, dynamic> parser() {
-      throw 'toml parsing error';
-    }
-
-    await run('init'.toArguments(), parser);
-
-    // TODO
-  });
-
   group('create_scratch', () {
     test('errors when any error occurs parsing the cirrus.toml file', () async {
       Map<String, dynamic> parser() {
