@@ -2,6 +2,10 @@
 
 A lean command-line interface tool for Salesforce development automation.
 
+Cirrus is a lightweight alternative to CumulusCI, designed to simplify the management of Salesforce scratch orgs and custom commands using a simple TOML configuration file. Unlike CumulusCI, Cirrus is distributed as a standalone binary—so no Python or pip required—so you can get started instantly without extra dependencies. 
+
+Cirrus aims to provide a straightforward experience that is powerful enough for most use cases.
+
 ## Installation
 
 ### Using npm (recommended)

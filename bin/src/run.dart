@@ -192,15 +192,12 @@ class CreateScratchCommand extends Command {
   String get description => 'Creates a scratch org.';
 
   CreateScratchCommand(this.definitions, {required this.cliRunner}) {
-    argParser
-      ..addOption(
-        'name',
-        abbr: 'n',
-        mandatory: true,
-        help: 'The name of the scratch org definition to create',
-      )
-      // TODO: Instead of supporting alias, just use the name of the config org, since this is the most common use case.
-      ..addOption('alias', abbr: 'a', help: 'Alias for the scratch org.');
+    argParser.addOption(
+      'name',
+      abbr: 'n',
+      mandatory: true,
+      help: 'The name of the scratch org definition to create',
+    );
   }
 
   @override
@@ -223,10 +220,7 @@ class CreateScratchCommand extends Command {
 
     switch (orgDefinition) {
       case Some(:final value):
-        final additionalArguments = <(String, String)>[];
-        if (argResults?.option('alias') != null) {
-          additionalArguments.add(('alias', argResults!.option('alias')!));
-        }
+        final additionalArguments = <(String, String)>[('alias', value.name)];
 
         final command = build(value, additionalArguments);
         await cliRunner(command);
