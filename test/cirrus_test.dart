@@ -149,7 +149,7 @@ main() {
       final logger = TestLogger();
 
       await run(
-        'run create_scratch'.toArguments(),
+        'run create_scratch --name=test'.toArguments(),
         configFileName: "",
         parser,
         logger: logger,
