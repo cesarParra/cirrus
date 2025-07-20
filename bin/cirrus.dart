@@ -4,7 +4,11 @@ import 'src/run.dart';
 const configFileName = "cirrus.toml";
 
 Future<void> main(List<String> arguments) async {
-  await run(arguments, createTomlLoader(configFileName));
+  await run(
+    arguments,
+    createTomlLoader(configFileName),
+    configFileName: configFileName,
+  );
 }
 
 ConfigParser createTomlLoader(String filename) {

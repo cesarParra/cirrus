@@ -37,6 +37,7 @@ class StdIOLogger implements Logger {
 Future<void> run(
   List<String> arguments,
   ConfigParser parser, {
+  required String configFileName,
   Logger logger = const StdIOLogger(),
 }) async {
   final configFile = Either.tryCatch(
@@ -50,7 +51,7 @@ Future<void> run(
             "cirrus",
             "A lean command-line interface tool for Salesforce development automation.",
           )
-          ..addCommand(InitCommand())
+          ..addCommand(InitCommand(configFileName))
           ..addCommand(RunCommand(configFile)),
     (error, _) => 'Unexpected error: $error',
   );
@@ -81,22 +82,26 @@ Future<void> run(
 }
 
 class InitCommand extends Command {
+  final String configFileName;
+
   @override
   String get name => 'init';
 
   @override
   String get description => 'Initializes the cirrus.toml file.';
 
+  InitCommand(this.configFileName);
+
   @override
   Either<String, String> run() {
-    final configFile = File('cirrus.toml');
+    final configFile = File(configFileName);
 
     if (configFile.existsSync()) {
-      return Left('cirrus.toml already exists in the current directory');
+      return Left('$configFileName already exists in the current directory');
     }
 
     configFile.writeAsStringSync(configContent);
-    return Right('cirrus.toml created successfully');
+    return Right('$configFileName created successfully');
   }
 }
 
