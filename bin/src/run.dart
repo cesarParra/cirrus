@@ -1,7 +1,68 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkdart.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
+
+typedef ConfigParser = Map<String, dynamic> Function();
+
+abstract class Logger {
+  error(String errorMessage);
+  print(String messageToPrint);
+}
+
+class StdIOLogger implements Logger {
+  const StdIOLogger();
+
+  @override
+  error(String errorMessage) {
+    stderr.writeln(chalk.red(errorMessage));
+    print("");
+  }
+
+  @override
+  print(String messageToPrint) {
+    print(messageToPrint);
+  }
+}
+
+Future<void> run(
+  List<String> arguments,
+  ConfigParser parser, {
+  Logger logger = const StdIOLogger(),
+}) async {
+  print(arguments);
+  final runner =
+      Either.tryCatch(
+        () => parser(),
+        (_, _) =>
+            "Was not able to load the cirrus.toml file. Make sure it exists",
+      ).flatMap(
+        (document) => Either.tryCatch(
+          () => CommandRunner(
+            "cirrus",
+            "A lean command-line interface tool for Salesforce development automation.",
+          )..addCommand(RunCommand(document)),
+          (error, _) => 'Unexpected error: $error',
+        ),
+      );
+
+  switch (runner) {
+    case Right(:final value):
+      try {
+        await value.run(arguments);
+      } on UsageException catch (e) {
+        logger.error(e.message);
+        logger.print(value.usage);
+      } catch (e) {
+        logger.error('$e');
+      }
+
+    case Left(:final value):
+      logger.error(value);
+  }
+}
 
 class RunCommand extends Command {
   @override
