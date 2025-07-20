@@ -18,26 +18,39 @@ class TestLogger implements Logger {
   }
 
   @override
-  print(String messageToPrint) {
+  log(String messageToPrint) {
     messages.add(messageToPrint);
   }
 }
 
 main() {
-  test('errors when an error occurs parsing the cirrus.toml file', () {
+  group('init', () async {
     Map<String, dynamic> parser() {
       throw 'toml parsing error';
     }
 
-    final logger = TestLogger();
+    await run('init'.toArguments(), parser);
 
-    run('run'.toArguments(), parser, logger: logger);
-
-    expect(logger.errors, hasLength(1));
-    expect(
-      logger.errors.first,
-      'Was not able to load the cirrus.toml file. Make sure it exists',
-    );
-    expect(logger.messages, isEmpty);
+    // TODO
   });
+
+  group('create_scratch', () {
+    test('errors when any error occurs parsing the cirrus.toml file', () async {
+      Map<String, dynamic> parser() {
+        throw 'toml parsing error';
+      }
+
+      final logger = TestLogger();
+
+      await run('run create_scratch'.toArguments(), parser, logger: logger);
+
+      expect(logger.errors, hasLength(1));
+      expect(logger.errors.first, contains('toml parsing error'));
+      expect(logger.messages, isEmpty);
+    });
+
+    // TODO: Positive tests
+  });
+
+  // TODO: Generic commands
 }

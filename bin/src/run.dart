@@ -9,7 +9,7 @@ typedef ConfigParser = Map<String, dynamic> Function();
 
 abstract class Logger {
   error(String errorMessage);
-  print(String messageToPrint);
+  log(String messageToPrint);
 }
 
 class StdIOLogger implements Logger {
@@ -18,11 +18,11 @@ class StdIOLogger implements Logger {
   @override
   error(String errorMessage) {
     stderr.writeln(chalk.red(errorMessage));
-    print("");
+    log("");
   }
 
   @override
-  print(String messageToPrint) {
+  log(String messageToPrint) {
     print(messageToPrint);
   }
 }
@@ -32,21 +32,18 @@ Future<void> run(
   ConfigParser parser, {
   Logger logger = const StdIOLogger(),
 }) async {
-  print(arguments);
-  final runner =
-      Either.tryCatch(
-        () => parser(),
-        (_, _) =>
-            "Was not able to load the cirrus.toml file. Make sure it exists",
-      ).flatMap(
-        (document) => Either.tryCatch(
-          () => CommandRunner(
-            "cirrus",
-            "A lean command-line interface tool for Salesforce development automation.",
-          )..addCommand(RunCommand(document)),
-          (error, _) => 'Unexpected error: $error',
-        ),
-      );
+  final configFile = Either.tryCatch(
+    () => parser(),
+    (error, _) => "Was not able to load the cirrus.toml file.\r\n$error'",
+  );
+
+  final runner = Either.tryCatch(
+    () => CommandRunner(
+      "cirrus",
+      "A lean command-line interface tool for Salesforce development automation.",
+    )..addCommand(RunCommand(configFile)),
+    (error, _) => 'Unexpected error: $error',
+  );
 
   switch (runner) {
     case Right(:final value):
@@ -54,7 +51,7 @@ Future<void> run(
         await value.run(arguments);
       } on UsageException catch (e) {
         logger.error(e.message);
-        logger.print(value.usage);
+        logger.log(value.usage);
       } catch (e) {
         logger.error('$e');
       }
@@ -71,22 +68,40 @@ class RunCommand extends Command {
   @override
   String get description => 'Runs a standalone command';
 
-  RunCommand(Map<String, dynamic> config) {
+  RunCommand(Either<String, Map<String, dynamic>> config) {
     // Parse the config file to pass the necessary information
-    // each individual command needs
+    // each individual command need
 
-    final orgDefinitions = switch (config) {
-      {'orgs': List<dynamic> orgs} =>
-        orgs.map(ScratchOrgDefinition.parse).toList(),
-      _ => <ScratchOrgDefinition>[],
-    };
+    addCreateScratchSubcommand(config);
+    addConfiguredSubcommands(config);
+  }
+
+  void addCreateScratchSubcommand(Either<String, Map<String, dynamic>> config) {
+    Either<String, List<ScratchOrgDefinition>> orgDefinitions =
+        switch (config) {
+          Left(:final value) => Left(value),
+          Right(:final value) => Right<String, List<ScratchOrgDefinition>>(
+            switch (value) {
+              {'orgs': List<dynamic> orgs} =>
+                orgs.map(ScratchOrgDefinition.parse).toList(),
+              _ => <ScratchOrgDefinition>[],
+            },
+          ),
+        };
 
     addSubcommand(CreateScratchCommand(orgDefinitions));
+  }
 
-    if (config['commands'] is Map<String, dynamic>) {
-      for (var MapEntry(:key, :value) in config['commands'].entries) {
-        addSubcommand(RunNamedCommand(key, value));
-      }
+  void addConfiguredSubcommands(Either<String, Map<String, dynamic>> config) {
+    switch (config) {
+      case Left():
+        return;
+      case Right(:final value):
+        if (value['commands'] is Map<String, dynamic>) {
+          for (var MapEntry(:key, :value) in value['commands'].entries) {
+            addSubcommand(RunNamedCommand(key, value));
+          }
+        }
     }
   }
 }
@@ -112,7 +127,7 @@ class ScratchOrgDefinition {
 }
 
 class CreateScratchCommand extends Command {
-  final List<ScratchOrgDefinition> definitions;
+  final Either<String, List<ScratchOrgDefinition>> definitions;
 
   @override
   final name = 'create_scratch';
@@ -133,8 +148,17 @@ class CreateScratchCommand extends Command {
 
   @override
   Future<void> run() async {
+    switch (definitions) {
+      case Left(:final value):
+        throw 'Error parsing the cirrus.toml file: $value';
+      case Right(:final value):
+        execute(value);
+    }
+  }
+
+  Future<void> execute(List<ScratchOrgDefinition> configs) async {
     final orgName = argResults?.option('name') ?? '';
-    final orgDefinition = definitions.firstWhereOrOption(
+    final orgDefinition = configs.firstWhereOrOption(
       (def) => def.name == orgName,
     );
 
