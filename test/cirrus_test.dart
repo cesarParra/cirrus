@@ -239,6 +239,54 @@ main() {
       expect(runner.args, contains('--duration-days=30'));
     });
 
+    test('is set as default by default', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n default'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
+      expect(runner.args, contains('--set-default'));
+    });
+
+    test('can avoid setting as the default', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n default --no-set-default'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
+      expect(runner.args, isNot(contains('--set-default')));
+    });
+
     test(
       'does not provide duration if not present in the config file',
       () async {
