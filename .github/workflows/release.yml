@@ -110,9 +110,9 @@ jobs:
           
           ### Using npm/npx
           \`\`\`bash
-          npm install -g cirrus-cli
+          npm install -g cirrus-for-sfdx
           # or use directly with npx
-          npx cirrus-cli
+          npx cirrus-for-sfdx
           \`\`\`
           
           ### Manual Download

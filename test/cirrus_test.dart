@@ -160,7 +160,7 @@ main() {
       expect(logger.messages, isEmpty);
     });
 
-    test('runs teh sf org scratch create command', () async {
+    test('runs the sf org scratch create command', () async {
       Map<String, dynamic> parser() {
         return TomlDocument.parse("""
           [[orgs]]
@@ -186,12 +186,84 @@ main() {
       expect(runner.args, contains('org'));
       expect(runner.args, contains('scratch'));
       expect(runner.args, contains('create'));
+    });
+
+    test('provides the definition file', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n default'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
       expect(
         runner.args,
         contains('--definition-file=config/project-scratch-def.json'),
       );
+    });
+
+    test('provides the duration if present in the config file', () async {
+      Map<String, dynamic> parser() {
+        return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          duration = 30
+          """).toMap();
+      }
+
+      final runner = TestRunner();
+      final logger = TestLogger();
+
+      await run(
+        'run create_scratch -n default'.toArguments(),
+        configFileName: "",
+        parser,
+        cliRunner: runner.run,
+        logger: logger,
+      );
+
       expect(runner.args, contains('--duration-days=30'));
     });
+
+    test(
+      'does not provide duration if not present in the config file',
+      () async {
+        Map<String, dynamic> parser() {
+          return TomlDocument.parse("""
+          [[orgs]]
+          name = "default"
+          definitionFile = "config/project-scratch-def.json"
+          """).toMap();
+        }
+
+        final runner = TestRunner();
+        final logger = TestLogger();
+
+        await run(
+          'run create_scratch -n default'.toArguments(),
+          configFileName: "",
+          parser,
+          cliRunner: runner.run,
+          logger: logger,
+        );
+
+        expect(runner.args, isNot(contains('--duration-days')));
+      },
+    );
 
     test('errors when the org is not defined in the cirrus.toml file', () async {
       Map<String, dynamic> parser() {
