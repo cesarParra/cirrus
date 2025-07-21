@@ -16,7 +16,8 @@
     "cirrus": "./bin/cirrus"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "test": "dart test"
   },
   "files": [
     "bin/",
