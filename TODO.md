@@ -17,6 +17,8 @@ Flows
       For example, release a new version of the package, and get the packageId to then promote it
 - [ ] Ability to conditionally run commands based on different context, including the output of the previous command
 - [ ] Ability to run commands in parallel
+- [ ] Ability to run string commands directly from flow
+- [ ] Ability to run other flows from flow
 
 Packaging
 - [ ] Ability to release new versions of packages

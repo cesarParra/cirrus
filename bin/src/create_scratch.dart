@@ -1,18 +1,18 @@
 import 'package:fpdart/fpdart.dart';
 import 'config.dart';
+import 'service_locator.dart';
 
 Future<Either<String, String>> runCreateScratch(
-  Future<void> Function(String) cliRunner,
-  Either<String, Config> config,
   String orgDefinitionName, {
   required bool setDefault,
 }) async {
+  final config = getIt.get<Either<String, Config>>();
+
   switch (config) {
     case Left(:final value):
       return Left('Error parsing the cirrus.toml file: $value');
     case Right(:final value):
       return await _execute(
-        cliRunner,
         value.scratchOrgDefinitions,
         orgDefinitionName,
         setDefault,
@@ -21,7 +21,6 @@ Future<Either<String, String>> runCreateScratch(
 }
 
 Future<Either<String, String>> _execute(
-  Future<void> Function(String) cliRunner,
   List<ScratchOrgDefinition> orgDefinitions,
   String orgDefinitionName,
   bool setDefault,
@@ -39,6 +38,8 @@ Future<Either<String, String>> _execute(
         additionalArguments,
         setDefault: setDefault,
       );
+
+      final cliRunner = getIt.get<CliRunner>();
       await cliRunner(command);
       return Right('Scratch org created successfully.');
     case None():
