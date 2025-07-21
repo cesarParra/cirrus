@@ -222,6 +222,15 @@ Cirrus CLI supports the following platforms:
 
 This CLI is built with Dart and distributed as platform-specific binaries through npm.
 
+### Setting Up for Development
+
+1. Install Dart SDK (if not already installed)
+2. Clone the repository
+3. Install dependencies:
+   ```bash
+   dart pub get
+   ```
+
 ### Running Tests
 
 ```bash
