@@ -1,9 +1,17 @@
 import 'dart:io';
-
+import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 
+import '../bin/src/config.dart';
 import '../bin/src/run.dart';
+import '../bin/src/service_locator.dart';
+
+CliRunner doNothingRunner() {
+  return (String command) async {
+    // This runner does nothing, it's just for testing purposes.
+  };
+}
 
 extension on String {
   List<String> toArguments() {
@@ -85,7 +93,18 @@ class TestRunner {
   }
 }
 
-main() {
+void main() {
+  late TestLogger logger;
+
+  setUp(() {
+    logger = TestLogger();
+    getIt.registerSingleton<Logger>(logger);
+  });
+
+  tearDown(() {
+    getIt.reset();
+  });
+
   group('init', () {
     const testFileName = "test_tmp/cirrus.toml";
 
@@ -118,16 +137,14 @@ main() {
     });
 
     test('initializes a new cirrus.toml file', () async {
-      final logger = TestLogger();
-
-      await run(
-        'init'.toArguments(),
-        () => {},
-        configFileName: testFileName,
-        logger: logger,
+      getIt.registerSingleton<Either<String, Config>>(
+        Left('No config available'),
       );
+      getIt.registerLazySingleton<CliRunner>(doNothingRunner);
 
-      //expect(logger.messages, contains('cirrus.toml created successfully'));
+      await run('init'.toArguments(), configFileName: testFileName);
+
+      expect(logger.successes.first, contains('created successfully'));
       expect(logger.errors, isEmpty);
       final testFile = File(testFileName);
       expect(testFile.existsSync(), isTrue);
@@ -142,17 +159,13 @@ main() {
 
   group('create_scratch', () {
     test('errors when any error occurs parsing the cirrus.toml file', () async {
-      Map<String, dynamic> parser() {
-        throw 'toml parsing error';
-      }
-
-      final logger = TestLogger();
+      getIt.registerSingleton<Either<String, Config>>(
+        Left('toml parsing error'),
+      );
 
       await run(
         'run create_scratch --name=test'.toArguments(),
         configFileName: "",
-        parser,
-        logger: logger,
       );
 
       expect(logger.errors, hasLength(1));
@@ -171,14 +184,15 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
+      getIt.registerSingleton<CliRunner>(runner.run);
 
       await run(
         'run create_scratch -n default'.toArguments(),
         configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
       );
 
       expect(logger.errors, isEmpty);
@@ -199,14 +213,15 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
+      getIt.registerSingleton<CliRunner>(runner.run);
 
       await run(
         'run create_scratch -n default'.toArguments(),
         configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
       );
 
       expect(
@@ -226,14 +241,15 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
+      getIt.registerSingleton<CliRunner>(runner.run);
 
       await run(
         'run create_scratch -n default'.toArguments(),
         configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
       );
 
       expect(runner.args, contains('--duration-days=30'));
@@ -250,14 +266,15 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
+      getIt.registerSingleton<CliRunner>(runner.run);
 
       await run(
         'run create_scratch -n default'.toArguments(),
         configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
       );
 
       expect(runner.args, contains('--set-default'));
@@ -274,14 +291,15 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
+      getIt.registerSingleton<CliRunner>(runner.run);
 
       await run(
         'run create_scratch -n default --no-set-default'.toArguments(),
         configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
       );
 
       expect(runner.args, isNot(contains('--set-default')));
@@ -299,14 +317,15 @@ main() {
         }
 
         final runner = TestRunner();
-        final logger = TestLogger();
+
+        getIt.registerSingleton<Either<String, Config>>(
+          Right(Config.parse(parser())),
+        );
+        getIt.registerSingleton<CliRunner>(runner.run);
 
         await run(
           'run create_scratch -n default'.toArguments(),
           configFileName: "",
-          parser,
-          cliRunner: runner.run,
-          logger: logger,
         );
 
         expect(runner.args, isNot(contains('--duration-days')));
@@ -323,14 +342,13 @@ main() {
           """).toMap();
       }
 
-      final logger = TestLogger();
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
 
       await run(
         'run create_scratch -n non_existent_org'.toArguments(),
         configFileName: "",
-        cliRunner: (String command) async {},
-        parser,
-        logger: logger,
       );
 
       expect(logger.errors, hasLength(1));
@@ -354,15 +372,13 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
 
-      await run(
-        'run hello'.toArguments(),
-        configFileName: "",
-        parser,
-        cliRunner: runner.run,
-        logger: logger,
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
       );
+      getIt.registerSingleton<CliRunner>(runner.run);
+
+      await run('run hello'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('echo'));
@@ -377,15 +393,11 @@ main() {
           """).toMap();
       }
 
-      final logger = TestLogger();
-
-      await run(
-        'run non_existent_command'.toArguments(),
-        configFileName: "",
-        cliRunner: (String command) async {},
-        parser,
-        logger: logger,
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
       );
+
+      await run('run non_existent_command'.toArguments(), configFileName: "");
 
       expect(logger.errors, hasLength(1));
       expect(
@@ -404,24 +416,22 @@ main() {
     test('errors when trying to run a flow that does not exist', () {
       Map<String, dynamic> parser() {
         return TomlDocument.parse("""
-          [commands]
-          hello = "echo 'Hello, World!'"
+        [commands]
+        hello = "echo 'Hello, World!'"
 
-          [flow.test]
-          description = "Test flow"
-          steps = [{ type = "command", name = "hello" }]
-          """).toMap();
+        [flow.test]
+        description = "Test flow"
+        steps = [{ type = "command", name = "hello" }]
+        """).toMap();
       }
 
-      final logger = TestLogger();
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
+      );
 
-      run(
-        'flow my_non_existent_flow'.toArguments(),
-        configFileName: "",
-        cliRunner: (String command) async {},
-        parser,
-        logger: logger,
-      ).then((_) {
+      run('flow my_non_existent_flow'.toArguments(), configFileName: "").then((
+        _,
+      ) {
         expect(logger.errors, hasLength(1));
         expect(
           logger.errors.first,
@@ -438,25 +448,23 @@ main() {
     test('runs a flow with a single command', () async {
       Map<String, dynamic> parser() {
         return TomlDocument.parse("""
-          [commands]
-          hello = "echo 'Hello, World!'"
+        [commands]
+        hello = "echo 'Hello, World!'"
 
-          [flow.test]
-          description = "Test flow"
-          steps = [{ type = "command", name = "hello" }]
-          """).toMap();
+        [flow.test]
+        description = "Test flow"
+        steps = [{ type = "command", name = "hello" }]
+        """).toMap();
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
 
-      await run(
-        'flow test'.toArguments(),
-        configFileName: "",
-        cliRunner: runner.run,
-        parser,
-        logger: logger,
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
       );
+      getIt.registerSingleton<CliRunner>(runner.run);
+
+      await run('flow test'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('echo'));
@@ -480,15 +488,13 @@ main() {
       }
 
       final runner = TestRunner();
-      final logger = TestLogger();
 
-      await run(
-        'flow test'.toArguments(),
-        configFileName: "",
-        cliRunner: runner.run,
-        parser,
-        logger: logger,
+      getIt.registerSingleton<Either<String, Config>>(
+        Right(Config.parse(parser())),
       );
+      getIt.registerSingleton<CliRunner>(runner.run);
+
+      await run('flow test'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('echo'));
