@@ -3,9 +3,9 @@ import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
 
-import '../bin/src/config.dart';
-import '../bin/src/run.dart';
-import '../bin/src/service_locator.dart';
+import 'package:cirrus/src/config.dart';
+import 'package:cirrus/src/run.dart';
+import 'package:cirrus/src/service_locator.dart';
 
 CliRunner doNothingRunner() {
   return (String command) async {
