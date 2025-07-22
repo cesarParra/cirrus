@@ -7,17 +7,41 @@ import 'service_locator.dart';
 import 'init_template.dart';
 import 'create_scratch.dart';
 import 'config.dart';
+import 'version.dart';
+
+class CirrusCommandRunner extends CommandRunner<dynamic> {
+  CirrusCommandRunner() : super(
+    'cirrus',
+    'A lean command-line interface tool for Salesforce development automation.',
+  ) {
+    argParser.addFlag(
+      'version',
+      abbr: 'v',
+      negatable: false,
+      help: 'Print the version number',
+    );
+  }
+
+  @override
+  Future<dynamic> run(Iterable<String> args) async {
+    final argResults = parse(args);
+    
+    // Handle version flag before running commands
+    if (argResults['version'] as bool) {
+      print('cirrus version $appVersion');
+      return;
+    }
+    
+    return super.run(args);
+  }
+}
 
 Future<void> run(
   List<String> arguments, {
   required String configFileName,
 }) async {
   final runner = Either.tryCatch(
-    () =>
-        CommandRunner(
-            "cirrus",
-            "A lean command-line interface tool for Salesforce development automation.",
-          )
+    () => CirrusCommandRunner()
           ..addCommand(InitCommand(configFileName))
           ..addCommand(RunCommand())
           ..addCommand(FlowCommand()),

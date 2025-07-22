@@ -17,6 +17,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
+    "prebuild": "node scripts/generate_version.js",
     "test": "dart test"
   },
   "files": [
