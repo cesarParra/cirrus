@@ -1,5 +1,5 @@
-import 'src/service_locator.dart';
-import 'src/run.dart';
+import 'package:cirrus/src/service_locator.dart';
+import 'package:cirrus/src/run.dart';
 
 const configFileName = "cirrus.toml";
 

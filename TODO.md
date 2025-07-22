@@ -1,7 +1,7 @@
 Misc and initialization
 - [x] Ability to run an `init` command that initializes the cirrus.toml file.
-- [ ] Have flows in the init template.
-- [ ] Ability to run `--version`. This should be runnable regardless of wether the toml exists or not.
+- [x] Have flows in the init template.
+- [x] Ability to run `--version`. This should be runnable regardless of wether the toml exists or not.
 
 Scratch ORgs
 - [x] Ability to define and create orgs
@@ -9,6 +9,7 @@ Scratch ORgs
 
 
 Commands
+- [x] Ability to define commands
 - [ ] Ability to define caches for commands
 
 Flows
