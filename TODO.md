@@ -6,6 +6,7 @@ Misc and initialization
 Scratch ORgs
 - [x] Ability to define and create orgs
 - [x] Ability to define and run any random command
+- [ ] Ability to define the target dev hub
 
 
 Commands
@@ -20,6 +21,7 @@ Flows
 - [ ] Ability to run commands in parallel
 - [ ] Ability to run string commands directly from flow
 - [ ] Ability to run other flows from flow
+- [ ] Validate that the flow is valid before running it. E.g. commands and org exist, etc.
 
 Packaging
 - [ ] Ability to release new versions of packages

@@ -1,4 +1,3 @@
-// TODO: Target devhub support
 class ScratchOrgDefinition {
   final String name;
   final String definitionFile;
