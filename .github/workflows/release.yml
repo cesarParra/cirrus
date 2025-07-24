@@ -66,6 +66,14 @@ jobs:
       - name: Install dependencies
         run: dart pub get
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Run prebuild step
+        run: npm run prebuild
+      
       - name: Build binary
         run: |
           # Set architecture-specific flags for macOS
