@@ -1,6 +1,6 @@
 {
   "name": "cirrus-for-sfdx",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cirrus CLI tool",
   "author": "Your Name",
   "license": "MIT",
@@ -17,7 +17,6 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "prebuild": "node scripts/generate_version.js",
     "test": "dart test"
   },
   "files": [
