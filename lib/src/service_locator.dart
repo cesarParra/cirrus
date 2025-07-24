@@ -50,6 +50,10 @@ void registerDependencies(String configFileName) {
   );
 
   getIt.registerLazySingleton<Logger>(() => StdIOLogger());
+
+  getIt.registerFactoryParam<FileSystem, String, void>(
+    (String path, _) => FileSystem.open(path),
+  );
 }
 
 Either<String, Config> loadConfig(ConfigParser parser) {
@@ -61,4 +65,22 @@ Either<String, Config> loadConfig(ConfigParser parser) {
 
 ConfigParser buildConfigParser(String filename) {
   return () => TomlDocument.loadSync(filename).toMap();
+}
+
+class FileSystem {
+  final File _file;
+
+  FileSystem._(this._file);
+
+  factory FileSystem.open(String path) {
+    return FileSystem._(File(path));
+  }
+
+  bool exists() => _file.existsSync();
+
+  String readAsStringSync() => _file.readAsStringSync();
+
+  void write(String content) {
+    _file.writeAsStringSync(content);
+  }
 }
