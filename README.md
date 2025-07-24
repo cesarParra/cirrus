@@ -118,6 +118,54 @@ cirrus flow setup
 cirrus flow deploy-and-test
 ```
 
+#### `cirrus package`
+
+Creates a new package version for Salesforce managed or unlocked packages.
+
+```bash
+cirrus package -p <package_name> [options]
+```
+
+This command automates the package versioning process by:
+1. Reading your `sfdx-project.json` file
+2. Automatically incrementing the version number based on the version type
+3. Updating the `sfdx-project.json` with the new version
+4. Running `sf package version create` with your specified options
+
+Options:
+- `-p, --package` (required): The name of the package to release, as defined in the sfdx-project.json file
+- `-t, --version-type`: The version type to increment (default: `minor`)
+  - `major`: Increments X.0.0 (for breaking changes)
+  - `minor`: Increments 0.X.0 (for new features)
+  - `patch`: Increments 0.0.X (for bug fixes)
+- `-a, --name`: The name/label for the new version
+- `-c, --code-coverage`: Calculate and store code coverage percentage
+- `-f, --definition-file`: Path to a definition file with required features and org preferences
+- `-k, --installation-key`: Installation key for key-protected packages
+- `-x, --installation-key-bypass`: Bypass the installation key requirement
+- `-v, --target-dev-hub`: Username or alias of the Dev Hub org
+- `-w, --wait`: Number of minutes to wait for package version creation
+- `--async-validation`: Return immediately without waiting for validation
+- `--skip-validation`: Skip validation during creation (can't promote unvalidated versions)
+- `--verbose`: Display verbose command output
+
+Please be aware that at least one of `--installation-key` or `--installation-key-bypass` must be provided.
+
+Examples:
+```bash
+# Create a minor version update
+cirrus package -p MyPackage
+
+# Create a major version with a specific name
+cirrus package -p MyPackage -t major -a "Summer 2024 Release"
+
+# Create a patch version with code coverage
+cirrus package -p MyPackage -t patch -c
+
+# Create version with installation key and wait 30 minutes
+cirrus package -p MyPackage -k MySecretKey123 -w 30
+```
+
 ## Configuration (cirrus.toml)
 
 The `cirrus.toml` file uses [TOML format](https://toml.io/) to define scratch org configurations, custom commands, and automation flows.
