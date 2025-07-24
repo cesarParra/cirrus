@@ -14,7 +14,7 @@ const String appVersion = '${version}';
 `;
 
 // Write to lib/src/version.dart
-const versionFilePath = path.join(__dirname, '..', 'bin', 'src', 'version.dart');
+const versionFilePath = path.join(__dirname, '..', 'lib', 'src', 'version.dart');
 fs.writeFileSync(versionFilePath, dartContent);
 
 console.log(`Generated version.dart with version ${version}`);

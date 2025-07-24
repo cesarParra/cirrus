@@ -36,8 +36,46 @@ jobs:
             echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
-  build-and-release:
+  update-version-file:
     needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install npm dependencies
+        run: npm install
+      
+      - name: Generate version.dart file
+        run: npm run prebuild
+      
+      - name: Check if version.dart changed
+        id: check-changes
+        run: |
+          if git diff --quiet lib/src/version.dart; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push version.dart
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add lib/src/version.dart
+          git commit -m "chore: update version.dart to ${{ needs.check-version.outputs.version }} [skip ci]"
+          git push
+
+  build-and-release:
+    needs: [check-version, update-version-file]
     if: needs.check-version.outputs.should_release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
@@ -58,6 +96,12 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      
+      - name: Pull latest changes
+        run: git pull origin main
       
       - uses: dart-lang/setup-dart@v1
         with:
@@ -65,14 +109,6 @@ jobs:
       
       - name: Install dependencies
         run: dart pub get
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      
-      - name: Run prebuild step
-        run: npm run prebuild
       
       - name: Build binary
         run: |
