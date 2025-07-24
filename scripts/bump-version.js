@@ -32,8 +32,24 @@ pubspecContent = pubspecContent.replace(/^version: .+$/m, `version: ${newVersion
 fs.writeFileSync(pubspecPath, pubspecContent);
 console.log(`✓ Updated pubspec.yaml to version ${newVersion}`);
 
-console.log(`\nVersion bumped to ${newVersion} in both files!`);
+// Update version.dart
+updateVersionFile(newVersion);
+console.log(`✓ Updated version.dart to version ${newVersion}`);
+
 console.log('\nNext steps:');
 console.log('1. Commit these changes: git add -A && git commit -m "Bump version to ' + newVersion + '"');
 console.log('2. Push to main: git push origin main');
 console.log('3. The GitHub Action will automatically create a release and publish to npm');
+
+function updateVersionFile(newVersion) {  
+  // Generate Dart file content
+  const dartContent = `// Generated file. Do not edit manually.
+  // Run 'node scripts/bumg-version.js' to update.
+  
+  const String appVersion = '${newVersion}';
+  `;
+  
+  // Write to lib/src/version.dart
+  const versionFilePath = path.join(__dirname, '..', 'lib', 'src', 'version.dart');
+  fs.writeFileSync(versionFilePath, dartContent);
+}
