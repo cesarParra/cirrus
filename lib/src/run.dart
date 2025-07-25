@@ -181,7 +181,7 @@ class RunNamedCommand extends Command {
   @override
   Future<void> run() async {
     final cliRunner = getIt.get<CliRunner>();
-    await cliRunner(command.command);
+    await cliRunner.run(command.command);
   }
 }
 
@@ -281,7 +281,7 @@ class NamedFlowCommand extends Command {
     final cliRunner = getIt.get<CliRunner>();
     Future<Either<String, void>> runCommand(String command) async {
       try {
-        await cliRunner(command);
+        await cliRunner.run(command);
         return Right(null);
       } catch (e) {
         return Left('$e');

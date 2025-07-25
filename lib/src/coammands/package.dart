@@ -35,6 +35,11 @@ class PackageCommand extends Command {
         defaultsTo: 'minor',
         allowed: ['major', 'minor', 'patch'],
       )
+      ..addFlag(
+        'promote',
+        negatable: false,
+        help: 'Whether to promote the package version.',
+      )
       ..addOption(
         'name',
         abbr: 'a',
@@ -157,6 +162,7 @@ class PackageCommand extends Command {
         // Run the command to create the package version
         final command = [
           'sf package version create',
+          '--json',
           '--package=$packageName',
           if (argResults?['code-coverage'] case true) '--code-coverage',
           if (argResults?['definition-file'] case String file)
@@ -173,9 +179,39 @@ class PackageCommand extends Command {
           if (argResults?['verbose'] case true) '--verbose',
         ];
 
-        await cliRunner(command.join(' '));
+        String versionCreateOutput = await cliRunner.output(command.join(' '));
 
-        return Right('Package "$packageName" version updated to $newVersion.');
+        if (argResults?['promote'] case true) {
+          // Parse the output to get the package version ID
+          final versionCreateJson = jsonDecode(versionCreateOutput);
+          final packageVersionId =
+              versionCreateJson['result']['SubscriberPackageVersionId']
+                  as String?;
+
+          if (packageVersionId == null || packageVersionId.isEmpty) {
+            return Left(
+              'Failed to create package version. No SubscriberPackageVersionId found in the output.',
+            );
+          }
+
+          // Run the command to promote the package version
+          final promoteCommand = [
+            'sf package version promote',
+            '--no-prompt',
+            '--package=$packageVersionId',
+            if (argResults?['target-dev-hub'] case String target)
+              '--target-dev-hub=$target',
+          ];
+          await cliRunner.run(promoteCommand.join(' '));
+        }
+
+        String message = switch (argResults?['promote']) {
+          true =>
+            'Package "$packageName" version $newVersion created and promoted successfully.',
+          _ =>
+            'Package "$packageName" version $newVersion created successfully.',
+        };
+        return Right(message);
     }
   }
 

@@ -8,7 +8,6 @@ import 'config.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 
 typedef ConfigParser = Map<String, dynamic> Function();
-typedef CliRunner = Future<void> Function(String);
 
 abstract class Logger {
   void error(String errorMessage);
@@ -39,7 +38,7 @@ class StdIOLogger implements Logger {
 final getIt = GetIt.instance;
 
 void registerDependencies(String configFileName) {
-  getIt.registerSingleton<CliRunner>(cli.run);
+  getIt.registerSingleton<CliRunner>(CliRunner());
 
   getIt.registerLazySingleton<ConfigParser>(
     () => buildConfigParser(configFileName),
@@ -65,6 +64,11 @@ Either<String, Config> loadConfig(ConfigParser parser) {
 
 ConfigParser buildConfigParser(String filename) {
   return () => TomlDocument.loadSync(filename).toMap();
+}
+
+class CliRunner {
+  Future<void> run(String command) async => cli.run;
+  Future<String> output(String command) async => cli.output(command);
 }
 
 class FileSystem {
