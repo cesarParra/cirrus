@@ -67,8 +67,8 @@ ConfigParser buildConfigParser(String filename) {
 }
 
 class CliRunner {
-  Future<void> run(String command) async => cli.run(command);
-  Future<String> output(String command) async => cli.output(command);
+  Future<void> run(String command) async => await cli.run(command);
+  Future<String> output(String command) async => await cli.output(command);
 }
 
 class FileSystem {
