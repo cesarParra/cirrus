@@ -7,12 +7,6 @@ import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/run.dart';
 import 'package:cirrus/src/service_locator.dart';
 
-CliRunner doNothingRunner() {
-  return (String command) async {
-    // This runner does nothing, it's just for testing purposes.
-  };
-}
-
 extension on String {
   List<String> toArguments() {
     final List<String> args = [];
@@ -85,11 +79,23 @@ class TestLogger implements Logger {
   }
 }
 
-class TestRunner {
+class TestRunner implements CliRunner {
   List<String> args = [];
+  final String simulatedOutput;
 
+  TestRunner({String? simulatedOutput})
+    : simulatedOutput = simulatedOutput ?? 'Simulated output';
+
+  @override
   Future<void> run(String command) async {
     args.addAll(command.toArguments());
+  }
+
+  @override
+  Future<String> output(String command) async {
+    args.addAll(command.toArguments());
+    // Simulate output for testing purposes
+    return simulatedOutput;
   }
 }
 
@@ -140,7 +146,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Left('No config available'),
       );
-      getIt.registerLazySingleton<CliRunner>(doNothingRunner);
+      getIt.registerSingleton<CliRunner>(TestRunner());
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => FileSystem.open(path),
       );
@@ -191,7 +197,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -220,7 +226,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -248,7 +254,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -273,7 +279,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -298,7 +304,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run(
         'run create_scratch -n default --no-set-default'.toArguments(),
@@ -324,7 +330,7 @@ void main() {
         getIt.registerSingleton<Either<String, Config>>(
           Right(Config.parse(parser())),
         );
-        getIt.registerSingleton<CliRunner>(runner.run);
+        getIt.registerSingleton<CliRunner>(runner);
 
         await run(
           'run create_scratch -n default'.toArguments(),
@@ -379,7 +385,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run('run hello'.toArguments(), configFileName: "");
 
@@ -465,7 +471,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run('flow test'.toArguments(), configFileName: "");
 
@@ -495,7 +501,7 @@ void main() {
       getIt.registerSingleton<Either<String, Config>>(
         Right(Config.parse(parser())),
       );
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
 
       await run('flow test'.toArguments(), configFileName: "");
 
@@ -537,7 +543,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -567,7 +573,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -597,7 +603,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -627,7 +633,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -652,7 +658,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -677,7 +683,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -702,7 +708,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -732,7 +738,7 @@ void main() {
         );
 
         final runner = TestRunner();
-        getIt.registerSingleton<CliRunner>(runner.run);
+        getIt.registerSingleton<CliRunner>(runner);
         getIt.registerSingleton<TestLogger>(logger);
 
         await run(
@@ -758,7 +764,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -783,7 +789,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -808,7 +814,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -833,7 +839,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -858,7 +864,7 @@ void main() {
       );
 
       final runner = TestRunner();
-      getIt.registerSingleton<CliRunner>(runner.run);
+      getIt.registerSingleton<CliRunner>(runner);
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
@@ -869,6 +875,41 @@ void main() {
 
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('--verbose'));
+    });
+
+    test('Executes the promote command when --promote is used', () async {
+      FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Left('No config available'),
+      );
+
+      getIt.registerFactoryParam<FileSystem, String, void>(
+        (String path, _) => fakeFileSystem,
+      );
+
+      final runner = TestRunner(
+        simulatedOutput: """
+      {
+        "result": {
+          "SubscriberPackageVersionId": "04t1t0000000abcAAA"
+        }
+      }
+      """,
+      );
+
+      getIt.registerSingleton<CliRunner>(runner);
+      getIt.registerSingleton<TestLogger>(logger);
+
+      await run(
+        'package create --package SamplePackage --version-type=minor --promote'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('promote'));
+      expect(runner.args, contains('--package=04t1t0000000abcAAA'));
     });
   });
 }

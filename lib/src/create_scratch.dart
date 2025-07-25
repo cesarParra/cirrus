@@ -40,7 +40,7 @@ Future<Either<String, String>> _execute(
       );
 
       final cliRunner = getIt.get<CliRunner>();
-      await cliRunner(command);
+      await cliRunner.run(command);
       return Right('Scratch org created successfully.');
     case None():
       return Left(
