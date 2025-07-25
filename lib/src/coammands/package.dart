@@ -22,6 +22,13 @@ class PackageCommand extends Command {
             'The name of the package to release, as defined in the sfdx-project.json file.',
       )
       ..addOption(
+        'sfdx-project-json-path',
+        abbr: 'j',
+        help:
+            'Path to the sfdx-project.json file. Defaults to looking for it in the current directory.',
+        defaultsTo: 'sfdx-project.json',
+      )
+      ..addOption(
         'version-type',
         abbr: 't',
         help: 'The version type to increment the package to.',
@@ -91,11 +98,14 @@ class PackageCommand extends Command {
 
   @override
   Future<Either<String, String>> run() async {
+    final sfdxProjectJsonPath = argResults!['sfdx-project-json-path'] as String;
     // Look for the "sfdx-project.json" file in the current directory
-    final projectFile = getIt.get<FileSystem>(param1: 'sfdx-project.json');
+    final projectFile = getIt.get<FileSystem>(param1: sfdxProjectJsonPath);
 
     if (!projectFile.exists()) {
-      return Left('sfdx-project.json file not found in the current directory.');
+      return Left(
+        '$sfdxProjectJsonPath file not found in the current directory.',
+      );
     }
 
     // Parse the project file and get the package information
