@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:args/command_runner.dart';
+import 'package:chalkdart/chalkstrings.dart';
 import 'package:fpdart/fpdart.dart';
 import 'coammands/package.dart';
 import 'service_locator.dart';
@@ -238,10 +239,18 @@ class NamedFlowCommand extends Command {
   @override
   Future<Either<String, String>> run() async {
     final logger = getIt.get<Logger>();
-    logger.log('Running flow "$name"');
+    logger.log(
+      'Running flow "${name.italic}"',
+      chalk: chalk.yellow.bold,
+      separator: true,
+    );
 
     for (final step in flow.steps) {
-      logger.log('Running step: ${step.printable()}');
+      logger.log(
+        'Running ${step.printable().italic}',
+        chalk: chalk.yellow.bold,
+        separator: true,
+      );
       Either<String, String> result = (await runStep(
         step,
       )).map((_) => 'Success');
