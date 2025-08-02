@@ -11,9 +11,11 @@ typedef ConfigParser = Map<String, dynamic> Function();
 
 abstract class Logger {
   void error(String errorMessage);
-  void log(String messageToPrint);
+  void log(String messageToPrint, {Chalk? chalk, bool separator = false});
   void success(String message);
 }
+
+const separatror = '----------------------------------------';
 
 class StdIOLogger implements Logger {
   const StdIOLogger();
@@ -25,13 +27,27 @@ class StdIOLogger implements Logger {
   }
 
   @override
-  log(String messageToPrint) {
-    print(messageToPrint);
+  log(String messageToPrint, {Chalk? chalk, separator = false}) {
+    if (separator) {
+      _print(separatror, chalk: chalk);
+    }
+    _print(messageToPrint, chalk: chalk);
+    if (separator) {
+      _print(separatror, chalk: chalk);
+    }
   }
 
   @override
   success(String message) {
     print(message.green.bold);
+  }
+
+  void _print(String message, {Chalk? chalk}) {
+    if (chalk != null) {
+      print(chalk(message));
+    } else {
+      print(message);
+    }
   }
 }
 
