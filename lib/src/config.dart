@@ -38,6 +38,8 @@ sealed class FlowStep {
       _ => throw 'Unable to determine the type of flow step $unparsed',
     };
   }
+
+  String printable();
 }
 
 class CreateScratchFlowStep extends FlowStep {
@@ -45,12 +47,22 @@ class CreateScratchFlowStep extends FlowStep {
   final bool? setDefault;
 
   CreateScratchFlowStep(this.orgName, this.setDefault);
+
+  @override
+  String printable() {
+    return 'Create scratch org $orgName.';
+  }
 }
 
 class RunCommandFlowStep extends FlowStep {
   final String commandName;
 
   RunCommandFlowStep(this.commandName);
+
+  @override
+  String printable() {
+    return 'Command $commandName.';
+  }
 }
 
 class Flow {

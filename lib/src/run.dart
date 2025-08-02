@@ -237,10 +237,15 @@ class NamedFlowCommand extends Command {
 
   @override
   Future<Either<String, String>> run() async {
+    final logger = getIt.get<Logger>();
+    logger.log('Running flow "$name"');
+
     for (final step in flow.steps) {
+      logger.log('Running step: ${step.printable()}');
       Either<String, String> result = (await runStep(
         step,
       )).map((_) => 'Success');
+
       if (result.isLeft()) {
         return result;
       }
