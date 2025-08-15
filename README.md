@@ -138,6 +138,7 @@ Options:
   - `major`: Increments X.0.0 (for breaking changes)
   - `minor`: Increments 0.X.0 (for new features)
   - `patch`: Increments 0.0.X (for bug fixes)
+- `--promote`: Whether to promote the package version after creation (default: false)
 - `-a, --name`: The name/label for the new version
 - `-c, --code-coverage`: Calculate and store code coverage percentage
 - `-f, --definition-file`: Path to a definition file with required features and org preferences
