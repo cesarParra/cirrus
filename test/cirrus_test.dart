@@ -5,7 +5,7 @@ import 'package:toml/toml.dart';
 import 'package:chalkdart/chalkstrings.dart';
 
 import 'package:cirrus/src/config.dart';
-import 'package:cirrus/src/run.dart';
+import 'package:cirrus/src/commands/runner.dart';
 import 'package:cirrus/src/service_locator.dart';
 
 extension on String {

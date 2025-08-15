@@ -1,6 +1,6 @@
 import 'package:fpdart/fpdart.dart';
-import 'config.dart';
-import 'service_locator.dart';
+import '../../config.dart';
+import '../../service_locator.dart';
 
 Future<Either<String, String>> runCreateScratch(
   String orgDefinitionName, {
