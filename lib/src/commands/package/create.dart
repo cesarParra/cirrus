@@ -1,5 +1,5 @@
 import 'package:args/command_runner.dart';
-import 'package:cirrus/src/create_scratch.dart';
+import 'package:cirrus/src/commands/run/create_scratch.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'package:fpdart/fpdart.dart';
 import 'dart:convert';
