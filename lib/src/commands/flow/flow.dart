@@ -1,5 +1,6 @@
 import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkstrings.dart';
+import 'package:cirrus/src/utils.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:fpdart/fpdart.dart';
 

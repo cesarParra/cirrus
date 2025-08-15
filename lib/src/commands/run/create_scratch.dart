@@ -1,3 +1,4 @@
+import 'package:cirrus/src/utils.dart';
 import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../service_locator.dart';
@@ -70,14 +71,4 @@ String _build(
   }
 
   return '$root --duration-days=${orgDefinition.duration}';
-}
-
-extension IterableExtestons<T> on Iterable<T> {
-  Option<T> firstWhereOrOption(Function(T) f) {
-    for (final current in this) {
-      if (f(current)) return Some(current);
-    }
-
-    return None();
-  }
 }
