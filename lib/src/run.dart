@@ -9,6 +9,7 @@ import 'init_template.dart';
 import 'create_scratch.dart';
 import 'config.dart';
 import 'version.dart';
+import 'package:cli_spin/cli_spin.dart';
 
 class CirrusCommandRunner extends CommandRunner<dynamic> {
   CirrusCommandRunner()
@@ -246,16 +247,22 @@ class NamedFlowCommand extends Command {
     );
 
     for (final step in flow.steps) {
-      logger.log(
-        'Running ${step.printable().italic}',
-        chalk: chalk.yellow.bold,
-        separator: true,
-      );
-      Either<String, String> result = (await runStep(
-        step,
-      )).map((_) => 'Success');
+      final spinner = CliSpin(
+        text: step.printable().yellow.bold,
+        spinner: CliSpinners.dots,
+        color: CliSpinnerColor.yellow,
+      ).start();
+
+      Either<String, String> result = (await runStep(step)).map((_) {
+        spinner.stop();
+        logger.success(
+          'Step ${step.printable().italic} completed successfully.',
+        );
+        return 'Step completed';
+      });
 
       if (result.isLeft()) {
+        spinner.stop();
         return result;
       }
     }

@@ -1,6 +1,6 @@
 name: cirrus
 description: A sample command-line application with basic argument parsing.
-version: 0.1.8
+version: 0.1.9
 publish_to: none
 repository: https://github.com/cesarParra/cirrus
 
@@ -11,6 +11,7 @@ dependencies:
   args: ^2.5.0
   chalkdart: ^3.0.5
   cli_script: ^1.0.0
+  cli_spin: ^1.0.1
   fpdart: ^1.1.1
   get_it: ^8.0.3
   toml: ^0.16.0
