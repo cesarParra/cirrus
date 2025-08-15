@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkstrings.dart';
 import 'package:fpdart/fpdart.dart';
-import 'coammands/package.dart';
+import 'commands/package/package.dart';
 import 'service_locator.dart';
 import 'init_template.dart';
 import 'create_scratch.dart';
