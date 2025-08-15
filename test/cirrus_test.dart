@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 import 'package:toml/toml.dart';
+import 'package:chalkdart/chalkstrings.dart';
 
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/run.dart';
@@ -69,7 +70,7 @@ class TestLogger implements Logger {
   }
 
   @override
-  log(String messageToPrint) {
+  log(String messageToPrint, {Chalk? chalk, bool separator = false}) {
     messages.add(messageToPrint);
   }
 
