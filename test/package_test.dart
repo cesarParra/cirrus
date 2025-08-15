@@ -18,7 +18,7 @@ void main() {
     getIt.reset();
   });
 
-  group('package', () {
+  group('package create', () {
     test('Errors when there is no sfdx-project.json file', () async {
       getIt.registerSingleton<Either<String, Config>>(
         Left('No config available'),
@@ -416,6 +416,107 @@ void main() {
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('promote'));
       expect(runner.args, contains('--package=04t1t0000000abcAAA'));
+    });
+  });
+
+  group('package get_latest', () {
+    group('package alias', () {
+      test('errors when there is sfdx-project.json file', () async {
+        getIt.registerSingleton<Either<String, Config>>(
+          Left('No config available'),
+        );
+
+        getIt.registerFactoryParam<FileSystem, String, void>(
+          (String path, _) => FakeFileSystem(path, false),
+        );
+
+        await run(
+          'package get_latest --package SamplePackage'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, hasLength(1));
+        expect(
+          logger.errors.first,
+          contains(
+            'sfdx-project.json file not found in the current directory.',
+          ),
+        );
+      });
+
+      test('errors when the alias block does not exist in the sfdx-project.json file', () async {
+        FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+
+        getIt.registerSingleton<Either<String, Config>>(
+          Left('No config available'),
+        );
+
+        getIt.registerFactoryParam<FileSystem, String, void>(
+          (String path, _) => fakeFileSystem,
+        );
+
+        await run(
+          'package get_latest --package SamplePackage'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, hasLength(1));
+        expect(
+          logger.errors.first,
+          contains(
+            'SamplePackage was not found in the packageAliases',
+          ),
+        );
+      });
+
+      test('errors when the alias does not exist in the sfdx-project.json file', () async {
+        FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+        fakeFileSystem.contents = """
+        {
+          "packageDirectories": [
+            {
+              "path": "force-app",
+              "default": true,
+              "versionName": "2.30.0.NEXT",
+              "versionNumber": "2.30.0.NEXT",
+              "package": "SamplePackage"
+            }
+          ],
+          "name": "sample-sf-project",
+          "namespace": "",
+          "sfdcLoginUrl": "https://login.salesforce.com",
+          "sourceApiVersion": "64.0",
+          "packageAliases": {
+            "AnotherPackage": "04t1t0000000xyzAAA"
+          }
+        }
+        """;
+
+        getIt.registerSingleton<Either<String, Config>>(
+          Left('No config available'),
+        );
+
+        getIt.registerFactoryParam<FileSystem, String, void>(
+          (String path, _) => fakeFileSystem,
+        );
+
+        await run(
+          'package get_latest --package SamplePackage'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, hasLength(1));
+        expect(
+          logger.errors.first,
+          contains(
+            'SamplePackage was not found in the packageAliases',
+          ),
+        );
+      });
+
+      // TODO: Found but result returns error
+      // TODO: Found but result is empty
+      // TODO: Found and returns a result -success
     });
   });
 }
