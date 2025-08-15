@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ansix/ansix.dart';
 
 import 'package:args/command_runner.dart';
 import 'package:fpdart/fpdart.dart';
@@ -118,19 +119,51 @@ class GetLatest extends Command {
       }
     });
 
+    if (versions.isEmpty) {
+      return 'No versions found for the specified package.';
+    }
+
     final latestVersion = versions.first;
-    return '''
-Latest version of package ${latestVersion.name} (${latestVersion.namespacePrefix}):
-Major Version: ${latestVersion.majorVersion}
-Minor Version: ${latestVersion.minorVersion}
-Patch Version: ${latestVersion.patchVersion}
-Build Number: ${latestVersion.buildNumber}
-Subscriber Package Version Id: ${latestVersion.subscriberPackageVersionId}
-Description: ${latestVersion.description}
-Is Password Protected: ${latestVersion.isPasswordProtected}
-Is Released: ${latestVersion.isReleased}
-Install URL: ${latestVersion.installUrl}
-''';
+
+    final List<List<Object?>> rows = <List<Object?>>[
+      <Object?>[
+        'Major Version',
+        'Minor Version',
+        'Patch Version',
+        'Build Number',
+        'Subscriber Package Version Id',
+        'Name',
+        'Namespace Prefix',
+        'Description',
+        'Is Password Protected',
+        'Is Released',
+        'Install URL',
+      ],
+      <Object?>[
+        latestVersion.majorVersion,
+        latestVersion.minorVersion,
+        latestVersion.patchVersion,
+        latestVersion.buildNumber,
+        latestVersion.subscriberPackageVersionId,
+        latestVersion.name,
+        latestVersion.namespacePrefix,
+        latestVersion.description,
+        latestVersion.isPasswordProtected,
+        latestVersion.isReleased,
+        latestVersion.installUrl,
+      ],
+    ];
+
+    final AnsiGrid verticalGrid = AnsiGrid.fromRows(
+      rows,
+      theme: AnsiGridTheme(
+        headerTextTheme: AnsiTextTheme(style: AnsiTextStyle(bold: true), foregroundColor: AnsiColor.green),
+        keepSameWidth: false,
+        orientation: AnsiOrientation.horizontal,
+      ),
+    );
+
+    return verticalGrid.formattedText;
   }
 }
 

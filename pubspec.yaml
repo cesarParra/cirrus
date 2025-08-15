@@ -8,6 +8,7 @@ environment:
   sdk: ^3.9.0
 
 dependencies:
+  ansix: ^0.3.4
   args: ^2.5.0
   chalkdart: ^3.0.5
   cli_script: ^1.0.0

@@ -5,18 +5,26 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: da0d9209ca76bde579f2da330aeb9df62b6319c834fa7baae052021b0462401f
+      sha256: "0b2f2bd91ba804e53a61d757b986f89f1f9eaed5b11e4b2f5a2468d86d6c9fc7"
       url: "https://pub.dev"
     source: hosted
-    version: "85.0.0"
+    version: "67.0.0"
   analyzer:
     dependency: transitive
     description:
       name: analyzer
-      sha256: b1ade5707ab7a90dfd519eaac78a7184341d19adb6096c68d499b59c7c6cf880
+      sha256: "37577842a27e4338429a1cbc32679d508836510b056f1eedf0c8d20e39c1383d"
       url: "https://pub.dev"
     source: hosted
-    version: "7.7.0"
+    version: "6.4.1"
+  analyzer_plugin:
+    dependency: transitive
+    description:
+      name: analyzer_plugin
+      sha256: "9661b30b13a685efaee9f02e5d01ed9f2b423bd889d28a304d02d704aee69161"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.11.3"
   ansi_regex:
     dependency: transitive
     description:
@@ -33,6 +41,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.1+1"
+  ansix:
+    dependency: "direct main"
+    description:
+      name: ansix
+      sha256: f1a37fba9c68f4d7c8ec1892f45f246b03e0854da73381de6fd5d7d5654238d6
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.4"
   args:
     dependency: "direct main"
     description:
@@ -137,6 +153,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  dart_style:
+    dependency: transitive
+    description:
+      name: dart_style
+      sha256: "99e066ce75c89d6b29903d788a7bb9369cf754f7b24bf70bf4b6d6d6b26853b9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.6"
+  data_class_plugin:
+    dependency: transitive
+    description:
+      name: data_class_plugin
+      sha256: "10b55883457cf2efea21ef9a51f420ef1e11a6cc9e37b15eb6a9fa29bbf8450a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.3"
   east_asian_width:
     dependency: transitive
     description:
@@ -401,6 +433,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.5"
+  tachyon:
+    dependency: transitive
+    description:
+      name: tachyon
+      sha256: f8b916bbb6ecf4165b2a24ccd1873c272c6262455cf37dd3403675b6094219b5
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.2"
   term_glyph:
     dependency: transitive
     description:
