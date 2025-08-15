@@ -1,6 +1,6 @@
 import 'package:args/command_runner.dart';
-import 'package:cirrus/src/commands/run/create_scratch.dart';
 import 'package:cirrus/src/service_locator.dart';
+import 'package:cirrus/src/utils.dart';
 import 'package:fpdart/fpdart.dart';
 import 'dart:convert';
 
@@ -18,13 +18,13 @@ class Create extends Command {
         abbr: 'p',
         mandatory: true,
         help:
-        'The name of the package to release, as defined in the sfdx-project.json file.',
+            'The name of the package to release, as defined in the sfdx-project.json file.',
       )
       ..addOption(
         'sfdx-project-json-path',
         abbr: 'j',
         help:
-        'Path to the sfdx-project.json file. Defaults to looking for it in the current directory.',
+            'Path to the sfdx-project.json file. Defaults to looking for it in the current directory.',
         defaultsTo: 'sfdx-project.json',
       )
       ..addOption(
@@ -48,50 +48,50 @@ class Create extends Command {
         'code-coverage',
         abbr: 'c',
         help:
-        'Calculate and store the code coverage percentage by running the packaged Apex tests included in this package version.',
+            'Calculate and store the code coverage percentage by running the packaged Apex tests included in this package version.',
       )
       ..addOption(
         'definition-file',
         abbr: 'f',
         help:
-        'Path to a definition file similar to scratch org definition file that contains the list of features and org preferences that the metadata of the package version depends on.',
+            'Path to a definition file similar to scratch org definition file that contains the list of features and org preferences that the metadata of the package version depends on.',
       )
       ..addOption(
         'installation-key',
         abbr: 'k',
         help:
-        'Installation key for key-protected package. (either --installation-key or --installation-key-bypass is required)',
+            'Installation key for key-protected package. (either --installation-key or --installation-key-bypass is required)',
       )
       ..addOption(
         'target-dev-hub',
         abbr: 'v',
         help:
-        'Username or alias of the Dev Hub org. Not required if the `target-dev-hub` configuration variable is already set.',
+            'Username or alias of the Dev Hub org. Not required if the `target-dev-hub` configuration variable is already set.',
       )
       ..addOption(
         'wait',
         abbr: 'w',
         help:
-        'Number of minutes to wait for the package version to be created.',
+            'Number of minutes to wait for the package version to be created.',
       )
       ..addFlag(
         'installation-key-bypass',
         abbr: 'x',
         negatable: false,
         help:
-        'Bypass the installation key requirement. (either --installation-key or --installation-key-bypass is required)',
+            'Bypass the installation key requirement. (either --installation-key or --installation-key-bypass is required)',
       )
       ..addFlag(
         'async-validation',
         negatable: false,
         help:
-        'Return a new package version before completing package validations.',
+            'Return a new package version before completing package validations.',
       )
       ..addFlag(
         'skip-validation',
         negatable: false,
         help:
-        'Skip validation during package version creation; you can’t promote unvalidated package versions.',
+            'Skip validation during package version creation; you can’t promote unvalidated package versions.',
       )
       ..addFlag(
         'verbose',
@@ -121,26 +121,26 @@ class Create extends Command {
     final packageName = argResults!['package'] as String;
 
     final packageDirectories =
-    projectData['packageDirectories'] as List<dynamic>?;
+        projectData['packageDirectories'] as List<dynamic>?;
     if (packageDirectories == null || packageDirectories.isEmpty) {
       return Left('No package directories found in sfdx-project.json.');
     }
 
     final packageDirectory = packageDirectories.firstWhereOrOption(
-          (dir) => (dir as Map<String, dynamic>)['package'] == packageName,
+      (dir) => (dir as Map<String, dynamic>)['package'] == packageName,
     );
 
     switch (packageDirectory) {
       case None():
         return Left('Package "$packageName" not found in sfdx-project.json.');
       case Some(value: final dir):
-      // Increment the version based on the provided version type
+        // Increment the version based on the provided version type
         final versionType = argResults!['version-type'] as String;
 
         // Increment the version name and the version number
         final versionName = argResults?['name'] as String?;
         final packageVersion =
-        (dir as Map<String, dynamic>)['versionNumber'] as String?;
+            (dir as Map<String, dynamic>)['versionNumber'] as String?;
 
         if (packageVersion == null || packageVersion.isEmpty) {
           return Left('No versionName found for package "$packageName".');
@@ -184,8 +184,8 @@ class Create extends Command {
           // Parse the output to get the package version ID
           final versionCreateJson = jsonDecode(versionCreateOutput);
           final packageVersionId =
-          versionCreateJson['result']['SubscriberPackageVersionId']
-          as String?;
+              versionCreateJson['result']['SubscriberPackageVersionId']
+                  as String?;
 
           if (packageVersionId == null || packageVersionId.isEmpty) {
             return Left(
@@ -206,9 +206,9 @@ class Create extends Command {
 
         String message = switch (argResults?['promote']) {
           true =>
-          'Package "$packageName" version $newVersion created and promoted successfully.',
+            'Package "$packageName" version $newVersion created and promoted successfully.',
           _ =>
-          'Package "$packageName" version $newVersion created successfully.',
+            'Package "$packageName" version $newVersion created successfully.',
         };
         return Right(message);
     }
