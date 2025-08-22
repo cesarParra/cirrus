@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:cirrus/src/commands/package/get_latest.dart';
+import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 
@@ -421,7 +425,7 @@ void main() {
 
   group('package get_latest', () {
     group('package alias', () {
-      test('errors when there is sfdx-project.json file', () async {
+      test('errors when there is no sfdx-project.json file', () async {
         getIt.registerSingleton<Either<String, Config>>(
           Left('No config available'),
         );
@@ -444,53 +448,89 @@ void main() {
         );
       });
 
-      test('errors when the alias block does not exist in the sfdx-project.json file', () async {
-        FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+      test(
+        'errors when the alias block does not exist in the sfdx-project.json file',
+        () async {
+          FakeFileSystem fakeFileSystem = FakeFileSystem(
+            'sfdx-project.json',
+            true,
+          );
 
-        getIt.registerSingleton<Either<String, Config>>(
-          Left('No config available'),
+          getIt.registerSingleton<Either<String, Config>>(
+            Left('No config available'),
+          );
+
+          getIt.registerFactoryParam<FileSystem, String, void>(
+            (String path, _) => fakeFileSystem,
+          );
+
+          await run(
+            'package get_latest --package SamplePackage'.toArguments(),
+            configFileName: "",
+          );
+
+          expect(logger.errors, hasLength(1));
+          expect(
+            logger.errors.first,
+            contains('SamplePackage was not found in the packageAliases'),
+          );
+        },
+      );
+
+      test(
+        'errors when the alias does not exist in the sfdx-project.json file',
+        () async {
+          FakeFileSystem fakeFileSystem = FakeFileSystem(
+            'sfdx-project.json',
+            true,
+          );
+
+          fakeFileSystem.contents = SfdxProjectJson(
+            packageDirectories: [
+              PackageDirectory(
+                package: 'SamplePackage',
+                versionNumber: '2.30.0.NEXT',
+              ),
+            ],
+            packageAliases: {'AnotherPackage': '04t1t0000000xyzAAA'},
+          ).toJson().encoded();
+
+          getIt.registerSingleton<Either<String, Config>>(
+            Left('No config available'),
+          );
+
+          getIt.registerFactoryParam<FileSystem, String, void>(
+            (String path, _) => fakeFileSystem,
+          );
+
+          await run(
+            'package get_latest --package SamplePackage'.toArguments(),
+            configFileName: "",
+          );
+
+          expect(logger.errors, hasLength(1));
+          expect(
+            logger.errors.first,
+            contains('SamplePackage was not found in the packageAliases'),
+          );
+        },
+      );
+
+      test('returns successful result when the alias exists', () async {
+        FakeFileSystem fakeFileSystem = FakeFileSystem(
+          'sfdx-project.json',
+          true,
         );
 
-        getIt.registerFactoryParam<FileSystem, String, void>(
-          (String path, _) => fakeFileSystem,
-        );
-
-        await run(
-          'package get_latest --package SamplePackage'.toArguments(),
-          configFileName: "",
-        );
-
-        expect(logger.errors, hasLength(1));
-        expect(
-          logger.errors.first,
-          contains(
-            'SamplePackage was not found in the packageAliases',
-          ),
-        );
-      });
-
-      test('errors when the alias does not exist in the sfdx-project.json file', () async {
-        FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
-        fakeFileSystem.contents = """
-        {
-          "packageDirectories": [
-            {
-              "path": "force-app",
-              "default": true,
-              "versionName": "2.30.0.NEXT",
-              "versionNumber": "2.30.0.NEXT",
-              "package": "SamplePackage"
-            }
+        fakeFileSystem.contents = SfdxProjectJson(
+          packageDirectories: [
+            PackageDirectory(
+              package: 'SamplePackage',
+              versionNumber: '2.31.0.NEXT',
+            ),
           ],
-          "name": "sample-sf-project",
-          "namespace": "",
-          "sfdcLoginUrl": "https://login.salesforce.com",
-          "sourceApiVersion": "64.0",
-          "packageAliases": {
-            "AnotherPackage": "04t1t0000000xyzAAA"
-          }
-        }
-        """;
+          packageAliases: {'SamplePackage': '04t1t0000000abcAAA'},
+        ).toJson().encoded();
 
         getIt.registerSingleton<Either<String, Config>>(
           Left('No config available'),
@@ -500,23 +540,42 @@ void main() {
           (String path, _) => fakeFileSystem,
         );
 
+        final testPackageVersion = PackageVersion(
+          majorVersion: 2,
+          minorVersion: 30,
+          patchVersion: 0,
+          buildNumber: 1,
+          subscriberPackageVersionId: "04t1t0000000abcAAA",
+          name: "SamplePackage Version",
+          namespacePrefix: "",
+          description: "",
+          isPasswordProtected: false,
+          isReleased: false,
+          installUrl: "",
+        );
+
+        final runner = TestRunner(
+          simulatedOutput:
+              """
+      {
+        "result": [
+          ${testPackageVersion.toJson().encoded()}
+        ]
+      }
+      """,
+        );
+
+        getIt.registerSingleton<CliRunner>(runner);
+        getIt.registerSingleton<TestLogger>(logger);
+
         await run(
           'package get_latest --package SamplePackage'.toArguments(),
           configFileName: "",
         );
 
-        expect(logger.errors, hasLength(1));
-        expect(
-          logger.errors.first,
-          contains(
-            'SamplePackage was not found in the packageAliases',
-          ),
-        );
+        expect(logger.errors, isEmpty);
+        expect(runner.args, contains('04t1t0000000abcAAA'));
       });
-
-      // TODO: Found but result returns error
-      // TODO: Found but result is empty
-      // TODO: Found and returns a result -success
     });
   });
 }
@@ -524,7 +583,11 @@ void main() {
 class FakeFileSystem implements FileSystem {
   final String path;
   final bool _exists;
-  String contents = '';
+  String contents = SfdxProjectJson(
+    packageDirectories: [
+      PackageDirectory(package: 'SamplePackage', versionNumber: '2.30.0.NEXT'),
+    ],
+  ).toJson().encoded();
 
   FakeFileSystem(this.path, this._exists);
 
@@ -532,7 +595,9 @@ class FakeFileSystem implements FileSystem {
   bool exists() => _exists;
 
   @override
-  String readAsStringSync() => sampleSfdxProjectJson;
+  String readAsStringSync() {
+    return contents;
+  }
 
   @override
   void write(String content) {
@@ -540,20 +605,8 @@ class FakeFileSystem implements FileSystem {
   }
 }
 
-String sampleSfdxProjectJson = """
-{
-  "packageDirectories": [
-    {
-      "path": "force-app",
-      "default": true,
-      "versionName": "2.30.0.NEXT",
-      "versionNumber": "2.30.0.NEXT",
-      "package": "SamplePackage"
-    }
-  ],
-  "name": "sample-sf-project",
-  "namespace": "",
-  "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "64.0"
+extension on Map<String, dynamic> {
+  String encoded() {
+    return jsonEncode(this);
+  }
 }
-""";

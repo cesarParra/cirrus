@@ -1,5 +1,6 @@
 import 'package:args/command_runner.dart';
 import 'package:cirrus/src/service_locator.dart';
+import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:cirrus/src/utils.dart';
 import 'package:fpdart/fpdart.dart';
 import 'dart:convert';
@@ -116,31 +117,24 @@ class Create extends Command {
     final projectContent = projectFile.readAsStringSync();
     // Parse the JSON content
     final projectData = jsonDecode(projectContent) as Map<String, dynamic>;
+    final packageJson = SfdxProjectJson.fromJson(projectData);
+    final packageName = argResults!['package'];
 
     // Loop through the "packageDirectories" array and find a "package" with the given name
-    final packageName = argResults!['package'] as String;
-
-    final packageDirectories =
-        projectData['packageDirectories'] as List<dynamic>?;
-    if (packageDirectories == null || packageDirectories.isEmpty) {
-      return Left('No package directories found in sfdx-project.json.');
-    }
-
-    final packageDirectory = packageDirectories.firstWhereOrOption(
-      (dir) => (dir as Map<String, dynamic>)['package'] == packageName,
+    final packageDirectory = packageJson.packageDirectories.firstWhereOrOption(
+      (dir) => dir.package == packageName,
     );
 
     switch (packageDirectory) {
       case None():
         return Left('Package "$packageName" not found in sfdx-project.json.');
-      case Some(value: final dir):
+      case Some(value: var dir):
         // Increment the version based on the provided version type
         final versionType = argResults!['version-type'] as String;
 
         // Increment the version name and the version number
         final versionName = argResults?['name'] as String?;
-        final packageVersion =
-            (dir as Map<String, dynamic>)['versionNumber'] as String?;
+        final packageVersion = dir.versionNumber;
 
         if (packageVersion == null || packageVersion.isEmpty) {
           return Left('No versionName found for package "$packageName".');
@@ -149,11 +143,19 @@ class Create extends Command {
         final newVersion = incrementVersion(packageVersion, versionType);
 
         if (versionName != null) {
-          (dir)['versionName'] = versionName;
+          dir = dir.cloneWith(versionName: versionName);
         }
-        (dir)['versionNumber'] = newVersion;
+        dir = dir.cloneWith(versionNumber: newVersion);
+
         // Write the updated project data back to the file
-        projectData['packageDirectories'] = packageDirectories;
+        projectData['packageDirectories'] = packageJson.packageDirectories.map((
+          e,
+        ) {
+          if (e.package == packageName) {
+            return dir.toJson();
+          }
+          return e.toJson();
+        }).toList();
         projectFile.write(getPrettyJSONString(projectData));
 
         final cliRunner = getIt.get<CliRunner>();
