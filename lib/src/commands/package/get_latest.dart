@@ -209,4 +209,20 @@ class PackageVersion {
       installUrl: json['InstallUrl'] as String,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'MajorVersion': majorVersion,
+      'MinorVersion': minorVersion,
+      'PatchVersion': patchVersion,
+      'BuildNumber': buildNumber,
+      'SubscriberPackageVersionId': subscriberPackageVersionId,
+      'Name': name,
+      'NamespacePrefix': namespacePrefix,
+      'Description': description,
+      'IsPasswordProtected': isPasswordProtected,
+      'IsReleased': isReleased,
+      'InstallUrl': installUrl,
+    };
+  }
 }
