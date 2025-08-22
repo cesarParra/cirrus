@@ -118,12 +118,12 @@ cirrus flow setup
 cirrus flow deploy-and-test
 ```
 
-#### `cirrus package`
+#### `cirrus package create`
 
 Creates a new package version for Salesforce managed or unlocked packages.
 
 ```bash
-cirrus package -p <package_name> [options]
+cirrus package create -p <package_name> [options]
 ```
 
 This command automates the package versioning process by:
@@ -155,17 +155,29 @@ Please be aware that at least one of `--installation-key` or `--installation-key
 Examples:
 ```bash
 # Create a minor version update
-cirrus package -p MyPackage
+cirrus package create -p MyPackage
 
 # Create a major version with a specific name
-cirrus package -p MyPackage -t major -a "Summer 2024 Release"
+cirrus package create -p MyPackage -t major -a "Summer 2024 Release"
 
 # Create a patch version with code coverage
-cirrus package -p MyPackage -t patch -c
+cirrus package create -p MyPackage -t patch -c
 
 # Create version with installation key and wait 30 minutes
-cirrus package -p MyPackage -k MySecretKey123 -w 30
+cirrus package create -p MyPackage -k MySecretKey123 -w 30
 ```
+
+#### `cirrus package get_latest`
+
+Retrieves information about the latest package version for a 2GP package.
+
+```bash
+cirrus package get_latest -p <package_name> [options]
+```
+
+Options:
+- `-p, --package` (required): The name of the package to get the version for. It must either be a package Id (starts with 0Ho), or the alias of the package Id as defined in the sfdx-project.json.
+- `-j, --sfdx-project-json-path`: Path to the sfdx-project.json file (default: current directory)
 
 ## Configuration (cirrus.toml)
 

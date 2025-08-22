@@ -25,7 +25,7 @@ class GetLatest extends Command {
         mandatory: true,
         help:
             'The name of the package to to get the version for. It must either be a package Id (starts with 0Ho) '
-            'the alias of the package Id as defined in the sfdx-project.json.',
+            'or the alias of the package Id as defined in the sfdx-project.json.',
       )
       ..addOption(
         'sfdx-project-json-path',
