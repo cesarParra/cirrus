@@ -1,6 +1,6 @@
 name: cirrus
 description: A sample command-line application with basic argument parsing.
-version: 0.2.0
+version: 0.2.1
 publish_to: none
 repository: https://github.com/cesarParra/cirrus
 
