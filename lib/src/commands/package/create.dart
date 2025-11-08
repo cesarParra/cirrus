@@ -181,6 +181,7 @@ class Create extends Command {
         ];
 
         String versionCreateOutput = await cliRunner.output(command.join(' '));
+        print(versionCreateOutput);
 
         if (argResults?['promote'] case true) {
           // Parse the output to get the package version ID
