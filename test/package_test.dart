@@ -131,6 +131,36 @@ void main() {
       expect(runner.args, contains('--package=SamplePackage'));
     });
 
+    test('Keeps any extra fields in the package directory', () async {
+      FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Left('No config available'),
+      );
+
+      getIt.registerFactoryParam<FileSystem, String, void>(
+        (String path, _) => fakeFileSystem,
+      );
+
+      final runner = TestRunner();
+      getIt.registerSingleton<CliRunner>(runner);
+      getIt.registerSingleton<TestLogger>(logger);
+
+      await run(
+        'package create --package SamplePackage --version-type=minor'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(fakeFileSystem.contents, isNotEmpty);
+      expect(
+        fakeFileSystem.contents,
+        contains('"path": "packages/SamplePackage"'),
+      );
+      expect(runner.args, contains('--package=SamplePackage'));
+    });
+
     test('Updates the name', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
@@ -585,7 +615,11 @@ class FakeFileSystem implements FileSystem {
   final bool _exists;
   String contents = SfdxProjectJson(
     packageDirectories: [
-      PackageDirectory(package: 'SamplePackage', versionNumber: '2.30.0.NEXT'),
+      PackageDirectory(
+        package: 'SamplePackage',
+        versionNumber: '2.30.0.NEXT',
+        extra: {'path': 'packages/SamplePackage'},
+      ),
     ],
   ).toJson().encoded();
 
