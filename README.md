@@ -82,12 +82,11 @@ cirrus run <subcommand> [options]
 Creates a Salesforce scratch org based on definitions in your `cirrus.toml` file.
 
 ```bash
-cirrus run create_scratch -n <org_name> [-a <alias>]
+cirrus run create_scratch -n <org_name>
 ```
 
 Options:
 - `-n, --name` (required): The name of the scratch org definition to create
-- `-a, --alias`: Optional alias for the scratch org
 
 Example:
 ```bash
