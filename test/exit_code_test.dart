@@ -13,11 +13,6 @@ void main() {
     getIt.reset();
   });
 
-  void withConfig(String yaml, {bool failing = false}) {
-    registerDoubles(failing: failing);
-    registerConfig(yaml);
-  }
-
   test('is zero when a command succeeds', () async {
     withConfig("""
 commands:
