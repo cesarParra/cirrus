@@ -15,6 +15,16 @@ import 'package:fpdart/fpdart.dart';
   return (logger: logger, runner: runner);
 }
 
+/// The doubles and the config together, which is what a test of a command needs.
+({TestLogger logger, TestRunner runner}) withConfig(
+  String yaml, {
+  bool failing = false,
+}) {
+  final doubles = registerDoubles(failing: failing);
+  registerConfig(yaml);
+  return doubles;
+}
+
 /// The config the command under test reads.
 void registerConfig(String yaml) {
   getIt.registerSingleton<Either<String, Config>>(Right(Config.fromYaml(yaml)));
@@ -47,11 +57,13 @@ class TestLogger implements Logger {
 }
 
 class TestRunner implements CliRunner {
-  List<String> args = [];
-
   /// The command lines it was asked to run, whole and in order - which is what a test about
-  /// ordering and about running something once needs to see.
+  /// ordering, or about running something once, needs to see.
   final List<String> commands = [];
+
+  /// The same calls as individual arguments, for tests asserting that a flag was passed.
+  List<String> get args =>
+      commands.expand((command) => command.toArguments()).toList();
   final String simulatedOutput;
 
   /// Behaves like a command that exited non-zero. cli_script throws in that case, which is how a
@@ -64,7 +76,6 @@ class TestRunner implements CliRunner {
   @override
   Future<void> run(String command) async {
     commands.add(command);
-    args.addAll(command.toArguments());
     if (fails) {
       throw '$command failed with exit code 1.';
     }
@@ -73,7 +84,6 @@ class TestRunner implements CliRunner {
   @override
   Future<String> output(String command) async {
     commands.add(command);
-    args.addAll(command.toArguments());
     if (fails) {
       throw '$command failed with exit code 1.';
     }

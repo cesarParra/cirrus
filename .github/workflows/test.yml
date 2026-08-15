@@ -112,12 +112,13 @@ jobs:
           exits_zero "$binary" run hello
           grep -q hello-from-cirrus last.log
 
-          # Prerequisites run, in order, before the command that names them.
+          # A command's prerequisites run when it does. That they run in the right order, and once,
+          # is asserted in depends_on_test.dart, where it can be seen.
           exits_zero "$binary" run check
           grep -q building last.log
           grep -q deploying last.log
 
-          # A flow's prerequisite runs once, before the first step; its steps repeat as written.
+          # A flow's prerequisite runs, and its repeated step repeats.
           exits_zero "$binary" flow demo
           test "$(grep -c building last.log)" -eq 1
           test "$(grep -c deploying last.log)" -eq 2

@@ -16,13 +16,13 @@ class FlowCommand extends Command implements ReadsConfig {
   String get description => 'Runs a flow defined in the config file.';
 
   FlowCommand() {
-    final config = getIt.get<Either<String, Config>>();
+    final config = loadedConfig();
+    if (config == null) {
+      return;
+    }
 
-    // A config that did not load is reported before any command is dispatched, so there is nothing
-    // to say about it here - there are simply no flows to offer.
-    final loaded = config.getRight().toNullable();
-    for (final flow in loaded?.flows ?? const <Flow>[]) {
-      addSubcommand(NamedFlowCommand(loaded!, flow));
+    for (final flow in config.flows) {
+      addSubcommand(NamedFlowCommand(config, flow));
     }
   }
 
@@ -57,8 +57,7 @@ class NamedFlowCommand extends Command {
       separator: true,
     );
 
-    // One execution for the whole flow, so a prerequisite named by the flow and again by one of
-    // its steps runs once. The steps themselves are an order somebody wrote down, and repeat.
+    // One execution for the whole flow, so a prerequisite named twice within it runs once.
     final execution = Execution(config);
 
     final prerequisites = await execution.prerequisites(flow.dependsOn);
@@ -73,7 +72,13 @@ class NamedFlowCommand extends Command {
         color: CliSpinnerColor.yellow,
       ).start();
 
-      final result = await _runStep(execution, step);
+      final result = switch (step) {
+        CreateScratchFlowStep() => await runCreateScratch(
+          step.orgName,
+          setDefault: step.setDefault,
+        ),
+        RunCommandFlowStep() => await execution.step(step.commandName),
+      };
       spinner.stop();
 
       if (result case Left(:final value)) {
@@ -84,18 +89,5 @@ class NamedFlowCommand extends Command {
     }
 
     return Right('Finished running flow $name.');
-  }
-
-  Future<Either<String, void>> _runStep(
-    Execution execution,
-    FlowStep step,
-  ) async {
-    return switch (step) {
-      CreateScratchFlowStep() => await runCreateScratch(
-        step.orgName,
-        setDefault: step.setDefault,
-      ),
-      RunCommandFlowStep() => await execution.step(step.commandName),
-    };
   }
 }
