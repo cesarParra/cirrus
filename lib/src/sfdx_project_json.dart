@@ -24,7 +24,10 @@ class SfdxProjectJson {
     };
   }
 
-  SfdxProjectJson cloneWith({List<PackageDirectory>? packageDirectories, Map<String, String>? packageAliases}) {
+  SfdxProjectJson cloneWith({
+    List<PackageDirectory>? packageDirectories,
+    Map<String, String>? packageAliases,
+  }) {
     return SfdxProjectJson(
       packageDirectories: packageDirectories ?? this.packageDirectories,
       packageAliases: packageAliases ?? this.packageAliases,
@@ -85,7 +88,9 @@ class PackageDirectory {
     buffer.writeln('PackageDirectory(');
     if (package != null) buffer.writeln('  package: $package,');
     if (versionName != null) buffer.writeln('  versionName: $versionName,');
-    if (versionNumber != null) buffer.writeln('  versionNumber: $versionNumber,');
+    if (versionNumber != null) {
+      buffer.writeln('  versionNumber: $versionNumber,');
+    }
     if (extra.isNotEmpty) buffer.writeln('  extra: $extra,');
     buffer.write(')');
     return buffer.toString();

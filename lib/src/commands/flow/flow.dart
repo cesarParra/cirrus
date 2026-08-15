@@ -26,7 +26,7 @@ class FlowCommand extends Command {
   List<NamedFlowCommand> get parsedSubcommands => switch (config) {
     Left() => [],
     Right(value: final config) =>
-        config.flows.map((currentFlow) => NamedFlowCommand(currentFlow)).toList(),
+      config.flows.map((currentFlow) => NamedFlowCommand(currentFlow)).toList(),
   };
 
   @override
@@ -111,11 +111,11 @@ class NamedFlowCommand extends Command {
   }
 
   Future<Either<String, void>> execute(
-      Config config,
-      String commandName,
-      ) async {
+    Config config,
+    String commandName,
+  ) async {
     final command = config.commands.firstWhereOrOption(
-          (command) => command.name == commandName,
+      (command) => command.name == commandName,
     );
 
     final cliRunner = getIt.get<CliRunner>();

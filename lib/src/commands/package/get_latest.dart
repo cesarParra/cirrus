@@ -157,7 +157,10 @@ class GetLatest extends Command {
     final AnsiGrid verticalGrid = AnsiGrid.fromRows(
       rows,
       theme: AnsiGridTheme(
-        headerTextTheme: AnsiTextTheme(style: AnsiTextStyle(bold: true), foregroundColor: AnsiColor.green),
+        headerTextTheme: AnsiTextTheme(
+          style: AnsiTextStyle(bold: true),
+          foregroundColor: AnsiColor.green,
+        ),
         keepSameWidth: false,
         orientation: AnsiOrientation.horizontal,
       ),

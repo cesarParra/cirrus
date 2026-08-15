@@ -57,7 +57,7 @@ void main() {
       );
       getIt.registerSingleton<CliRunner>(TestRunner());
       getIt.registerFactoryParam<FileSystem, String, void>(
-            (String path, _) => FileSystem.open(path),
+        (String path, _) => FileSystem.open(path),
       );
 
       await run('init'.toArguments(), configFileName: testFileName);

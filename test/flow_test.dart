@@ -37,8 +37,8 @@ void main() {
       );
 
       run('flow my_non_existent_flow'.toArguments(), configFileName: "").then((
-          _,
-          ) {
+        _,
+      ) {
         expect(logger.errors, hasLength(1));
         expect(
           logger.errors.first,
