@@ -108,6 +108,18 @@ Any command defined under `commands:` in your `cirrus.yaml` can be run:
 cirrus run <custom_command_name>
 ```
 
+##### Passing arguments through
+
+Anything after `--` is appended to the command line:
+
+```bash
+cirrus run e2e -- --project=chromium --workers=1
+```
+
+The arguments reach the command that was named and nothing else - a prerequisite dragged in behind
+it runs as written. This is what lets one `e2e` command serve a pull-request build that runs one
+browser and a merge build that runs them all.
+
 #### `cirrus flow`
 
 Executes predefined flows from your `cirrus.yaml` file.
@@ -144,6 +156,9 @@ Options:
   - `major`: Increments X.0.0 (for breaking changes)
   - `minor`: Increments 0.X.0 (for new features)
   - `patch`: Increments 0.0.X (for bug fixes)
+  - `none`: Creates the version without touching `sfdx-project.json`, which is what a project whose
+    `versionNumber` ends in `.NEXT` wants - Salesforce moves the build number, and a pipeline that
+    cuts a version per run should not rewrite the file it checked out
 - `--promote`: Whether to promote the package version after creation (default: false)
 - `-a, --name`: The name/label for the new version
 - `-c, --code-coverage`: Calculate and store code coverage percentage
@@ -242,6 +257,9 @@ Each org is keyed by the name you pass to `--name`, and takes:
 - `alias`: the alias the org is created under. Defaults to the name it is keyed by
 - `default`: create this org when `cirrus run create_scratch` is given no `--name`. At most one org
   may say so
+- `namespace`: set `false` for an org that stands in for a subscriber's, which does not carry the
+  package's namespace
+- `wait`: minutes to wait for the org to be created
 
 ```yaml
 orgs:

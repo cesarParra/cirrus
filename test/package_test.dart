@@ -71,6 +71,44 @@ void main() {
       expect(runner.args, contains('--package=SamplePackage'));
     });
 
+    test('leaves the version alone when asked for no bump', () async {
+      // A project whose versionNumber ends in `.NEXT` lets Salesforce move the build number, so a
+      // pipeline that cuts a version per night must not rewrite the file it checked out.
+      FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
+
+      getIt.registerSingleton<Either<String, Config>>(
+        Left('No config available'),
+      );
+
+      getIt.registerFactoryParam<FileSystem, String, void>(
+        (String path, _) => fakeFileSystem,
+      );
+
+      final runner = TestRunner();
+      getIt.registerSingleton<CliRunner>(runner);
+      getIt.registerSingleton<TestLogger>(logger);
+
+      final before = fakeFileSystem.contents;
+
+      await run(
+        'package create --package SamplePackage --version-type=none'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(
+        fakeFileSystem.contents,
+        before,
+        reason: 'Expected sfdx-project.json to be left as it was found',
+      );
+      expect(
+        fakeFileSystem.contents,
+        contains('"versionNumber":"2.30.0.NEXT"'),
+      );
+      expect(runner.args, contains('--package=SamplePackage'));
+    });
+
     test('Increments the minor version', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 

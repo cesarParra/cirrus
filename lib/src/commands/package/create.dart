@@ -31,9 +31,12 @@ class Create extends Command {
       ..addOption(
         'version-type',
         abbr: 't',
-        help: 'The version type to increment the package to.',
+        help:
+            'The version type to increment the package to. `none` creates a version without '
+            'touching sfdx-project.json, which is what a project whose versionNumber ends in '
+            '`.NEXT` wants.',
         defaultsTo: 'minor',
-        allowed: ['major', 'minor', 'patch'],
+        allowed: ['major', 'minor', 'patch', 'none'],
       )
       ..addFlag(
         'promote',
@@ -140,23 +143,29 @@ class Create extends Command {
           return Left('No versionName found for package "$packageName".');
         }
 
-        final newVersion = incrementVersion(packageVersion, versionType);
+        // `none` leaves the file as it was found: the build number moves on Salesforce's side,
+        // and a pipeline that cuts a version per run must not rewrite what it checked out.
+        final newVersion = versionType == 'none'
+            ? packageVersion
+            : incrementVersion(packageVersion, versionType);
 
-        if (versionName != null) {
-          dir = dir.cloneWith(versionName: versionName);
-        }
-        dir = dir.cloneWith(versionNumber: newVersion);
-
-        // Write the updated project data back to the file
-        projectData['packageDirectories'] = packageJson.packageDirectories.map((
-          e,
-        ) {
-          if (e.package == packageName) {
-            return dir.toJson();
+        if (versionType != 'none' || versionName != null) {
+          if (versionName != null) {
+            dir = dir.cloneWith(versionName: versionName);
           }
-          return e.toJson();
-        }).toList();
-        projectFile.write(getPrettyJSONString(projectData));
+          dir = dir.cloneWith(versionNumber: newVersion);
+
+          // Write the updated project data back to the file
+          projectData['packageDirectories'] = packageJson.packageDirectories
+              .map((e) {
+                if (e.package == packageName) {
+                  return dir.toJson();
+                }
+                return e.toJson();
+              })
+              .toList();
+          projectFile.write(getPrettyJSONString(projectData));
+        }
 
         final cliRunner = getIt.get<CliRunner>();
 

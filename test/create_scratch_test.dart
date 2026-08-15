@@ -166,6 +166,69 @@ orgs:
       });
     });
 
+    group('an org that is not shaped like the project', () {
+      test(
+        'is created without the package namespace when it says so',
+        () async {
+          registerConfig("""
+orgs:
+  subscriber:
+    definitionFile: config/subscriber.json
+    namespace: false
+""");
+
+          await run(
+            'run create_scratch -n subscriber'.toArguments(),
+            configFileName: "",
+          );
+
+          expect(logger.errors, isEmpty);
+          expect(runner.args, contains('--no-namespace'));
+        },
+      );
+
+      test('carries the namespace unless it says otherwise', () async {
+        registerConfig(oneOrg);
+
+        await run(
+          'run create_scratch -n default'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(runner.args, isNot(contains('--no-namespace')));
+      });
+
+      test('waits as long as the org asks', () async {
+        registerConfig("""
+orgs:
+  slow:
+    definitionFile: config/subscriber.json
+    wait: 25
+""");
+
+        await run(
+          'run create_scratch -n slow'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(runner.args, contains('--wait=25'));
+      });
+
+      test('does not wait when the org does not ask', () async {
+        registerConfig(oneOrg);
+
+        await run(
+          'run create_scratch -n default'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(
+          runner.args.any((argument) => argument.startsWith('--wait')),
+          isFalse,
+        );
+      });
+    });
+
     group('when the command names no org', () {
       test('creates the one the config marks as the default', () async {
         registerConfig("""

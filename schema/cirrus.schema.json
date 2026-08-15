@@ -53,6 +53,15 @@
         "default": {
           "description": "Create this org when `cirrus run create_scratch` is given no --name. At most one org may say so.",
           "type": "boolean"
+        },
+        "namespace": {
+          "description": "Whether the org carries the project's package namespace. Set false for an org standing in for a subscriber's, which does not.",
+          "type": "boolean"
+        },
+        "wait": {
+          "description": "Minutes to wait for the org to be created. Salesforce's own default applies without it.",
+          "type": "integer",
+          "minimum": 1
         }
       }
     },

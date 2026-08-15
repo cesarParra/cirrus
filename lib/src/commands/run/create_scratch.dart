@@ -60,6 +60,8 @@ String _build(ScratchOrgDefinition orgDefinition, bool setDefault) {
     if (setDefault) '--set-default',
     if (orgDefinition.duration != null)
       '--duration-days=${orgDefinition.duration}',
+    if (!orgDefinition.namespace) '--no-namespace',
+    if (orgDefinition.wait != null) '--wait=${orgDefinition.wait}',
   ].join(' ');
 }
 
