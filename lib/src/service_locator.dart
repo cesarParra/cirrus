@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:chalkdart/chalkstrings.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:get_it/get_it.dart';
-import 'package:toml/toml.dart';
+import 'package:yaml/yaml.dart';
 import 'config.dart';
 import 'package:cli_script/cli_script.dart' as cli;
 
@@ -75,11 +75,22 @@ Either<String, Config> loadConfig(ConfigParser parser) {
   return Either.tryCatch(() {
     final unparsed = parser();
     return Config.parse(unparsed);
-  }, (error, _) => "Was not able to load the cirrus.toml file.\r\n$error'");
+  }, (error, _) => "Was not able to load the $configFileName file.\r\n$error");
 }
 
 ConfigParser buildConfigParser(String filename) {
-  return () => TomlDocument.loadSync(filename).toMap();
+  return () {
+    final file = File(filename);
+
+    // Cirrus read TOML up to 0.2.x. Left to itself the message would be that the file is missing,
+    // which is true and useless to the one person it happens to.
+    if (!file.existsSync() && File('cirrus.toml').existsSync()) {
+      throw 'Found a cirrus.toml. Cirrus reads $configFileName as of 0.3.0 - see '
+          'https://github.com/cesarParra/cirrus#configuration for the same file in YAML.';
+    }
+
+    return asPlainMap(loadYaml(file.readAsStringSync()));
+  };
 }
 
 class CliRunner {

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json",
+  "title": "cirrus.yaml",
+  "description": "Salesforce development automation: the orgs a project creates, the commands it runs, and the flows that sequence them.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "orgs": {
+      "description": "The scratch orgs this project creates, keyed by the name you refer to them by.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/org" }
+    },
+    "commands": {
+      "description": "The commands this project runs, keyed by the name `cirrus run` takes.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/command" }
+    },
+    "flows": {
+      "description": "Sequences of steps, run in order, stopping at the first step that fails.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/flow" }
+    }
+  },
+  "$defs": {
+    "org": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["definitionFile"],
+      "properties": {
+        "definitionFile": {
+          "description": "Path to the scratch org definition file, relative to the project root.",
+          "type": "string"
+        },
+        "duration": {
+          "description": "How many days the scratch org lives. Salesforce's own default applies when this is absent.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "alias": {
+          "description": "The alias the org is created under. Defaults to the name this org is keyed by.",
+          "type": "string"
+        },
+        "default": {
+          "description": "Create this org when `cirrus run create_scratch` is given no --name. At most one org may say so.",
+          "type": "boolean"
+        }
+      }
+    },
+    "command": {
+      "description": "The command line to run, or a mapping carrying it. Commands are not run through a shell: `&&`, pipes and $VARIABLES are arguments rather than syntax.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run"],
+          "properties": {
+            "run": {
+              "description": "The command line to run.",
+              "type": "string"
+            },
+            "description": {
+              "description": "What this command is for, shown in `cirrus run --help`.",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps"],
+      "properties": {
+        "description": {
+          "description": "What this flow is for, shown in `cirrus flow --help`.",
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/step" }
+        }
+      }
+    },
+    "step": {
+      "description": "A step names its kind with its first key.",
+      "type": "object",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "required": ["createScratch"],
+          "properties": {
+            "createScratch": {
+              "description": "The name of an org defined under `orgs`.",
+              "type": "string"
+            },
+            "setDefault": {
+              "description": "Set the created org as the CLI's default. True when absent.",
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "additionalProperties": false,
+          "required": ["command"],
+          "properties": {
+            "command": {
+              "description": "The name of a command defined under `commands`.",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

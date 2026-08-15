@@ -21,7 +21,7 @@ void main() {
   });
 
   group('init', () {
-    const testFileName = "test_tmp/cirrus.toml";
+    const testFileName = "test_tmp/cirrus.yaml";
 
     setUp(() {
       // Ensure the test_tmp directory exists
@@ -51,7 +51,7 @@ void main() {
       }
     });
 
-    test('initializes a new cirrus.toml file', () async {
+    test('initializes a new cirrus.yaml file', () async {
       getIt.registerSingleton<Either<String, Config>>(
         Left('No config available'),
       );
@@ -68,10 +68,7 @@ void main() {
       expect(testFile.existsSync(), isTrue);
 
       final content = testFile.readAsStringSync();
-      expect(
-        content,
-        contains('# Uncomment the following lines to define a scratch org.'),
-      );
+      expect(content, contains('# yaml-language-server: \$schema='));
     });
   });
 }

@@ -51,8 +51,9 @@ class CreateScratchCommand extends Command {
       ..addOption(
         'name',
         abbr: 'n',
-        mandatory: true,
-        help: 'The name of the scratch org definition to create',
+        help:
+            'The name of the scratch org definition to create. Defaults to the org marked '
+            "'default: true' in the configuration file.",
       )
       ..addFlag(
         'set-default',
@@ -66,7 +67,7 @@ class CreateScratchCommand extends Command {
   @override
   Future<Either<String, String>> run() async {
     return await runCreateScratch(
-      argResults?.option('name') ?? '',
+      argResults?.option('name'),
       setDefault: argResults?.flag('set-default') ?? true,
     );
   }
@@ -86,6 +87,6 @@ class RunNamedCommand extends Command {
   @override
   Future<void> run() async {
     final cliRunner = getIt.get<CliRunner>();
-    await cliRunner.run(command.command);
+    await cliRunner.run(command.run);
   }
 }

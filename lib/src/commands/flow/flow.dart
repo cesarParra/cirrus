@@ -104,7 +104,7 @@ class NamedFlowCommand extends Command {
 
     switch (config) {
       case Left(:final value):
-        return Left('Error parsing the cirrus.toml file: $value');
+        return Left('Error parsing the $configFileName file: $value');
       case Right(:final value):
         return await execute(value, commandName);
     }
@@ -130,7 +130,7 @@ class NamedFlowCommand extends Command {
 
     return switch (command) {
       None() => Left('Command $commandName not found'),
-      Some(:final value) => await runCommand(value.command),
+      Some(:final value) => await runCommand(value.run),
     };
   }
 }
