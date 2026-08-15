@@ -5,6 +5,7 @@ import 'package:fpdart/fpdart.dart';
 import 'flow/flow.dart';
 import 'package/package.dart';
 import '../service_locator.dart';
+import '../config.dart';
 import '../version.dart';
 import 'init/innit.dart';
 import 'run/run.dart';
@@ -68,6 +69,14 @@ Future<int> run(
           }
         }
       } on UsageException catch (e) {
+        // Every command and flow cirrus offers is read out of the config file, so when that file
+        // cannot be read there are no subcommands to find. Reporting the missing subcommand names
+        // the symptom and buries the cause.
+        final configError = _configError();
+        if (configError != null) {
+          return _failed(logger, configError);
+        }
+
         final status = _failed(logger, e.message);
         logger.log(value.usage);
         return status;
@@ -88,4 +97,17 @@ Future<int> run(
 int _failed(Logger logger, String message) {
   logger.error(message);
   return 1;
+}
+
+/// Why the config file did not load, when it did not. Null when it loaded, and when nothing has
+/// tried to - `cirrus init` and `--version` are answerable without one.
+String? _configError() {
+  if (!getIt.isRegistered<Either<String, Config>>()) {
+    return null;
+  }
+
+  return switch (getIt.get<Either<String, Config>>()) {
+    Left(:final value) => value,
+    Right() => null,
+  };
 }

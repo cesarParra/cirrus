@@ -1,39 +1,41 @@
 const configContent = """
-# Uncomment the following lines to define a scratch org.
-# You can define multiple scratch orgs by adding more entries to the [[orgs]]
-# section. Each org must have a unique name and a definition file.
-# The definition file should be a valid Salesforce scratch org definition file.
-# The duration is optional.
-
-#[[orgs]]
-#name = "default"
-#definitionFile = "config/project-scratch-def.json"
-#duration = 30
-
-# Uncomment the following lines to define flows that can orchestrate multiple commands.
-# Each flow should have a unique name and a list of steps.
-# Flows are executed using `cirrus flow <flow_name>`
+# yaml-language-server: \$schema=https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json
 #
-# [flow.setup]
-# description = "Create scratch org and deploy"
-# steps = [
-#   { type = "create_scratch", org = "default" },
-#   { type = "command", name = "deploy" }
-# ]
+# The line above is what gives an editor completion and validation for this file. VS Code needs the
+# YAML extension; JetBrains IDEs read it as is.
+
+# The scratch orgs this project creates, keyed by the name you refer to them by.
 #
-# [flow.test]
-# description = "Run all tests"
-# steps = [
-#   { type = "command", name = "compile" },
-#   { type = "command", name = "test" }
-# ]
+# orgs:
+#   dev:
+#     definitionFile: config/project-scratch-def.json
+#     duration: 30
+#     # Created under this alias. Defaults to the name above.
+#     alias: my-scratch-org
+#     # `cirrus run create_scratch` with no --name creates this one.
+#     default: true
 
-# Uncomment the following lines to define commands that can be run with `cirrus run <command>`.
-# Each command should have a unique name and a shell command to execute.
-# You can define multiple commands by adding more entries to the [commands] section.
+# The commands you run. A command is the command line itself, or a mapping when there is more to
+# say about it.
+#
+# Commands are not run through a shell, so `&&`, pipes and \$VARIABLES are arguments rather than
+# syntax. A sequence of commands is a flow.
+#
+# commands:
+#   deploy: sf project deploy start
+#   test:
+#     description: Run every local test with coverage.
+#     run: sf apex test run --test-level RunLocalTests --code-coverage --wait 20
 
-#[commands]
-#hello = "echo 'Hello, Cirrus!'"
-#deploy = "sf project deploy start"
-#test = "sf apex test run --test-level RunLocalTests --wait 20"
+# The flows: a sequence of steps, run in order, stopping at the first one that fails. Each step
+# names its kind with its first key.
+#
+# flows:
+#   setup:
+#     description: A fresh scratch org with the project deployed into it.
+#     steps:
+#       - createScratch: dev
+#         setDefault: true
+#       - command: deploy
+#       - command: test
 """;
