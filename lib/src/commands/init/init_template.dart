@@ -16,11 +16,15 @@ const configContent = """
 # Commands are not run through a shell, so `&&`, pipes and \$VARIABLES reach the program as
 # arguments rather than syntax. A sequence of commands is a flow.
 #
+# `dependsOn` names commands that must have run first. Each runs once however many times it is
+# named, and a command with only `dependsOn` is a name for its prerequisites.
+#
 # commands:
 #   deploy: sf project deploy start
 #   test:
 #     description: Run every local test with coverage.
 #     run: sf apex test run --test-level RunLocalTests --code-coverage --wait 20
+#     dependsOn: [deploy]
 
 # flows:
 #   setup:

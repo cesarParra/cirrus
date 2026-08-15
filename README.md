@@ -285,10 +285,55 @@ commands:
 A sequence of commands is a flow, and anything genuinely needing a shell belongs in a script the
 command calls.
 
+### Prerequisites
+
+`dependsOn` says what has to have happened before a command can run. Cirrus works out the order and
+runs each prerequisite **once**, however many times it is named:
+
+```yaml
+commands:
+  tw: npx tailwindcss -i input.css -o output.css
+  compile: tsc -b
+
+  build:
+    description: Every deployable artifact.
+    dependsOn: [tw, compile]
+
+  lint: eslint .
+  test:
+    run: vitest run
+    dependsOn: [build]
+
+  check:
+    description: Am I done?
+    dependsOn: [lint, test]
+```
+
+`cirrus run check` runs `lint`, then `tw`, `compile` and `test` - and `build` happens once even
+though both `test` and `check` reach it. A command with only `dependsOn` and no `run`, like `build`
+and `check` above, is a name for its prerequisites and runs nothing itself.
+
+Prerequisites are checked when the config is read, so a name that matches no command, or a chain
+that comes back round to where it started, is reported before anything runs.
+
 ### Flows
 
-A flow is a list of steps, run in order, stopping at the first one that fails. Each step names its
-kind with its first key:
+A flow is a list of steps, run in order, stopping at the first one that fails. It can take
+prerequisites of its own, which run before the first step:
+
+```yaml
+flows:
+  release:
+    dependsOn: [build]
+    steps:
+      - command: deploy
+```
+
+**Prerequisites and steps are different things.** A prerequisite says what must already have
+happened, so it runs once. A step is an order you wrote down, so naming the same command twice runs
+it twice.
+
+Each step names its kind with its first key:
 
 - `createScratch: <org>` creates one of the orgs defined above, and takes `setDefault` (true unless
   you say otherwise)

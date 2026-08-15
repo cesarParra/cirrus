@@ -1,10 +1,10 @@
 import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkstrings.dart';
-import 'package:cirrus/src/utils.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:fpdart/fpdart.dart';
 
 import '../../config.dart';
+import '../../execution.dart';
 import '../../service_locator.dart';
 import '../run/create_scratch.dart';
 
@@ -20,8 +20,9 @@ class FlowCommand extends Command implements ReadsConfig {
 
     // A config that did not load is reported before any command is dispatched, so there is nothing
     // to say about it here - there are simply no flows to offer.
-    for (final flow in config.getRight().toNullable()?.flows ?? <Flow>[]) {
-      addSubcommand(NamedFlowCommand(flow));
+    final loaded = config.getRight().toNullable();
+    for (final flow in loaded?.flows ?? const <Flow>[]) {
+      addSubcommand(NamedFlowCommand(loaded!, flow));
     }
   }
 
@@ -36,6 +37,7 @@ class FlowCommand extends Command implements ReadsConfig {
 }
 
 class NamedFlowCommand extends Command {
+  final Config config;
   final Flow flow;
 
   @override
@@ -44,7 +46,7 @@ class NamedFlowCommand extends Command {
   @override
   String get description => flow.description ?? '';
 
-  NamedFlowCommand(this.flow);
+  NamedFlowCommand(this.config, this.flow);
 
   @override
   Future<Either<String, String>> run() async {
@@ -55,6 +57,15 @@ class NamedFlowCommand extends Command {
       separator: true,
     );
 
+    // One execution for the whole flow, so a prerequisite named by the flow and again by one of
+    // its steps runs once. The steps themselves are an order somebody wrote down, and repeat.
+    final execution = Execution(config);
+
+    final prerequisites = await execution.prerequisites(flow.dependsOn);
+    if (prerequisites case Left(:final value)) {
+      return Left(value);
+    }
+
     for (final step in flow.steps) {
       final spinner = CliSpin(
         text: step.printable().yellow.bold,
@@ -62,65 +73,29 @@ class NamedFlowCommand extends Command {
         color: CliSpinnerColor.yellow,
       ).start();
 
-      Either<String, String> result = (await runStep(step)).map((_) {
-        spinner.stop();
-        logger.success(
-          'Step ${step.printable().italic} completed successfully.',
-        );
-        return 'Step completed';
-      });
+      final result = await _runStep(execution, step);
+      spinner.stop();
 
-      if (result.isLeft()) {
-        spinner.stop();
-        return result;
+      if (result case Left(:final value)) {
+        return Left(value);
       }
+
+      logger.success('Step ${step.printable().italic} completed successfully.');
     }
 
     return Right('Finished running flow $name.');
   }
 
-  Future<Either<String, void>> runStep(FlowStep step) async {
+  Future<Either<String, void>> _runStep(
+    Execution execution,
+    FlowStep step,
+  ) async {
     return switch (step) {
       CreateScratchFlowStep() => await runCreateScratch(
         step.orgName,
         setDefault: step.setDefault,
       ),
-      RunCommandFlowStep() => await runCommand(step.commandName),
-    };
-  }
-
-  Future<Either<String, void>> runCommand(String commandName) async {
-    final config = getIt.get<Either<String, Config>>();
-
-    switch (config) {
-      case Left(:final value):
-        return Left(value);
-      case Right(:final value):
-        return await execute(value, commandName);
-    }
-  }
-
-  Future<Either<String, void>> execute(
-    Config config,
-    String commandName,
-  ) async {
-    final command = config.commands.firstWhereOrOption(
-      (command) => command.name == commandName,
-    );
-
-    final cliRunner = getIt.get<CliRunner>();
-    Future<Either<String, void>> runCommand(String command) async {
-      try {
-        await cliRunner.run(command);
-        return Right(null);
-      } catch (e) {
-        return Left('$e');
-      }
-    }
-
-    return switch (command) {
-      None() => Left('Command $commandName not found'),
-      Some(:final value) => await runCommand(value.run),
+      RunCommandFlowStep() => await execution.step(step.commandName),
     };
   }
 }

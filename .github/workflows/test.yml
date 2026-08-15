@@ -93,11 +93,16 @@ jobs:
             deploy:
               description: Ship it.
               run: echo deploying
+            build: echo building
+            check:
+              dependsOn: [build, deploy]
             boom: "false"
 
           flows:
             demo:
+              dependsOn: [build]
               steps:
+                - command: deploy
                 - command: deploy
             breaks:
               steps:
@@ -107,8 +112,15 @@ jobs:
           exits_zero "$binary" run hello
           grep -q hello-from-cirrus last.log
 
-          exits_zero "$binary" flow demo
+          # Prerequisites run, in order, before the command that names them.
+          exits_zero "$binary" run check
+          grep -q building last.log
           grep -q deploying last.log
+
+          # A flow's prerequisite runs once, before the first step; its steps repeat as written.
+          exits_zero "$binary" flow demo
+          test "$(grep -c building last.log)" -eq 1
+          test "$(grep -c deploying last.log)" -eq 2
 
           # A failure has to reach the shell, not just the person reading the output.
           exits_non_zero "$binary" run boom

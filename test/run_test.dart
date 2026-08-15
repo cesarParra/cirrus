@@ -71,17 +71,22 @@ commands:
     });
 
     test('describes itself the way the command that defines it does', () {
-      final described = RunNamedCommand(
-        NamedCommand(
-          'deploy',
-          'sf project deploy start',
-          description: 'Ship it to an org.',
-        ),
-      );
-      final undescribed = RunNamedCommand(NamedCommand('hello', 'echo hi'));
+      final config = Config.fromYaml("""
+commands:
+  deploy:
+    description: Ship it to an org.
+    run: sf project deploy start
+  hello: echo hi
+""");
 
-      expect(described.description, 'Ship it to an org.');
-      expect(undescribed.description, contains('hello'));
+      expect(
+        RunNamedCommand(config, config.commands.first).description,
+        'Ship it to an org.',
+      );
+      expect(
+        RunNamedCommand(config, config.commands.last).description,
+        contains('hello'),
+      );
     });
 
     test('leaves a usage error alone for a command that needs no config', () async {
