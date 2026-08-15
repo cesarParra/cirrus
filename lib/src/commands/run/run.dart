@@ -5,7 +5,7 @@ import '../../config.dart';
 import '../../service_locator.dart';
 import 'create_scratch.dart';
 
-class RunCommand extends Command {
+class RunCommand extends Command implements ReadsConfig {
   @override
   final name = 'run';
 
@@ -80,7 +80,7 @@ class RunNamedCommand extends Command {
   String get name => command.name;
 
   @override
-  String get description => 'Execute the $name command.';
+  String get description => command.description ?? 'Execute the $name command.';
 
   RunNamedCommand(this.command);
 

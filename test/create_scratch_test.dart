@@ -3,7 +3,6 @@ import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
 import 'helpers.dart';
 
@@ -12,21 +11,12 @@ void main() {
   late TestRunner runner;
 
   setUp(() {
-    logger = TestLogger();
-    runner = TestRunner();
-    getIt.registerSingleton<Logger>(logger);
-    getIt.registerSingleton<CliRunner>(runner);
+    (logger: logger, runner: runner) = registerDoubles();
   });
 
   tearDown(() {
     getIt.reset();
   });
-
-  void withConfig(String yaml) {
-    getIt.registerSingleton<Either<String, Config>>(
-      Right(Config.parse(asPlainMap(loadYaml(yaml)))),
-    );
-  }
 
   const oneOrg = """
 orgs:
@@ -52,7 +42,7 @@ orgs:
     });
 
     test('runs the sf org scratch create command', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -67,7 +57,7 @@ orgs:
     });
 
     test('provides the definition file', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -81,7 +71,7 @@ orgs:
     });
 
     test('provides the duration if present in the config file', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -92,7 +82,7 @@ orgs:
     });
 
     test('is set as default by default', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n default'.toArguments(),
@@ -103,7 +93,7 @@ orgs:
     });
 
     test('can avoid setting as the default', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n default --no-set-default'.toArguments(),
@@ -116,7 +106,7 @@ orgs:
     test(
       'does not provide duration if not present in the config file',
       () async {
-        withConfig("""
+        registerConfig("""
 orgs:
   default:
     definitionFile: config/project-scratch-def.json
@@ -132,7 +122,7 @@ orgs:
     );
 
     test('errors when the org is not defined in the config file', () async {
-      withConfig(oneOrg);
+      registerConfig(oneOrg);
 
       await run(
         'run create_scratch -n non_existent_org'.toArguments(),
@@ -143,7 +133,7 @@ orgs:
       expect(
         logger.errors.first,
         contains(
-          "The org 'non_existent_org' is not defined in the cirrus.yaml file.",
+          "The org 'non_existent_org' is not defined in the $configFileName file.",
         ),
       );
       expect(logger.messages, isEmpty);
@@ -151,7 +141,7 @@ orgs:
 
     group('the alias the org is created under', () {
       test('is the name it is keyed by when it says nothing else', () async {
-        withConfig(oneOrg);
+        registerConfig(oneOrg);
 
         await run(
           'run create_scratch -n default'.toArguments(),
@@ -162,7 +152,7 @@ orgs:
       });
 
       test('is the alias the org gives', () async {
-        withConfig("""
+        registerConfig("""
 orgs:
   ci:
     definitionFile: config/project-scratch-def.json
@@ -178,7 +168,7 @@ orgs:
 
     group('when the command names no org', () {
       test('creates the one the config marks as the default', () async {
-        withConfig("""
+        registerConfig("""
 orgs:
   dev:
     definitionFile: config/dev.json
@@ -194,7 +184,7 @@ orgs:
       });
 
       test('says so when no org is marked', () async {
-        withConfig(oneOrg);
+        registerConfig(oneOrg);
 
         await run('run create_scratch'.toArguments(), configFileName: "");
 
@@ -205,7 +195,7 @@ orgs:
 
       test('refuses a config where two orgs are the default', () async {
         expect(
-          () => withConfig("""
+          () => registerConfig("""
 orgs:
   dev:
     definitionFile: config/dev.json

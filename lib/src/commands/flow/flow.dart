@@ -8,40 +8,30 @@ import '../../config.dart';
 import '../../service_locator.dart';
 import '../run/create_scratch.dart';
 
-class FlowCommand extends Command {
-  final Either<String, Config> config;
-
+class FlowCommand extends Command implements ReadsConfig {
   @override
   String get name => 'flow';
 
   @override
   String get description => 'Runs a flow defined in the config file.';
 
-  FlowCommand() : config = getIt.get<Either<String, Config>>() {
-    for (final flowCommand in parsedSubcommands) {
-      addSubcommand(flowCommand);
+  FlowCommand() {
+    final config = getIt.get<Either<String, Config>>();
+
+    // A config that did not load is reported before any command is dispatched, so there is nothing
+    // to say about it here - there are simply no flows to offer.
+    for (final flow in config.getRight().toNullable()?.flows ?? <Flow>[]) {
+      addSubcommand(NamedFlowCommand(flow));
     }
   }
 
-  List<NamedFlowCommand> get parsedSubcommands => switch (config) {
-    Left() => [],
-    Right(value: final config) =>
-      config.flows.map((currentFlow) => NamedFlowCommand(currentFlow)).toList(),
-  };
-
   @override
   Either<String, String> run() {
-    switch (config) {
-      case Left(:final value):
-        throw value;
-      case _:
-        if (parsedSubcommands.isEmpty) {
-          return Left('No flows defined in the config file.');
-        }
-        return Right(
-          'Available flows: ${parsedSubcommands.map((e) => e.name).join(', ')}',
-        );
+    if (subcommands.isEmpty) {
+      return Left('No flows are defined in $configFileName.');
     }
+
+    return Right('Available flows: ${subcommands.keys.join(', ')}');
   }
 }
 
@@ -93,7 +83,7 @@ class NamedFlowCommand extends Command {
     return switch (step) {
       CreateScratchFlowStep() => await runCreateScratch(
         step.orgName,
-        setDefault: step.setDefault ?? true,
+        setDefault: step.setDefault,
       ),
       RunCommandFlowStep() => await runCommand(step.commandName),
     };
@@ -104,7 +94,7 @@ class NamedFlowCommand extends Command {
 
     switch (config) {
       case Left(:final value):
-        return Left('Error parsing the $configFileName file: $value');
+        return Left(value);
       case Right(:final value):
         return await execute(value, commandName);
     }

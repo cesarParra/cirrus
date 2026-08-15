@@ -1,9 +1,6 @@
 import 'package:cirrus/src/commands/runner.dart';
-import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
 import 'helpers.dart';
 
@@ -12,25 +9,16 @@ void main() {
   late TestRunner runner;
 
   setUp(() {
-    logger = TestLogger();
-    runner = TestRunner();
-    getIt.registerSingleton<Logger>(logger);
-    getIt.registerSingleton<CliRunner>(runner);
+    (logger: logger, runner: runner) = registerDoubles();
   });
 
   tearDown(() {
     getIt.reset();
   });
 
-  void withConfig(String yaml) {
-    getIt.registerSingleton<Either<String, Config>>(
-      Right(Config.parse(asPlainMap(loadYaml(yaml)))),
-    );
-  }
-
   group('flows', () {
     test('errors when trying to run a flow that does not exist', () async {
-      withConfig("""
+      registerConfig("""
 commands:
   hello: echo 'Hello, World!'
 
@@ -56,7 +44,7 @@ flows:
     });
 
     test('runs a flow with a single command', () async {
-      withConfig("""
+      registerConfig("""
 commands:
   hello: echo 'Hello, World!'
 
@@ -75,7 +63,7 @@ flows:
     });
 
     test('runs a flow with multiple steps', () async {
-      withConfig("""
+      registerConfig("""
 commands:
   hello: echo 'Hello, World!'
   goodbye: echo 'Goodbye, World!'
@@ -97,7 +85,7 @@ flows:
     });
 
     test('creates a scratch org from a flow step', () async {
-      withConfig("""
+      registerConfig("""
 orgs:
   dev:
     definitionFile: config/dev.json

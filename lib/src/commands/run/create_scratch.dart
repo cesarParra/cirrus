@@ -11,50 +11,56 @@ Future<Either<String, String>> runCreateScratch(
 
   switch (config) {
     case Left(:final value):
-      return Left('Error parsing the $configFileName file: $value');
+      return Left(value);
     case Right(:final value):
+      final orgs = value.scratchOrgDefinitions;
+
       // The org named on the command line, or the one the config marks as the default. Passing
       // `-n` every time for the org a project almost always creates is what a default is for.
-      final requested = orgDefinitionName ?? value.defaultOrg?.name;
+      if (orgDefinitionName == null) {
+        final fallback = value.defaultOrg;
 
-      if (requested == null) {
-        return Left(
-          "No org to create. Name one with --name, or mark an org 'default: true' in "
-          "$configFileName.\r\n${_available(value.scratchOrgDefinitions)}",
-        );
+        if (fallback == null) {
+          return Left(
+            "No org to create. Name one with --name, or mark an org 'default: true' in "
+            "$configFileName.\r\n${_available(orgs)}",
+          );
+        }
+
+        return await _create(fallback, setDefault: setDefault);
       }
 
-      return await _execute(value.scratchOrgDefinitions, requested, setDefault);
+      final named = orgs.firstWhereOrOption(
+        (def) => def.name == orgDefinitionName,
+      );
+
+      return switch (named) {
+        Some(:final value) => await _create(value, setDefault: setDefault),
+        None() => Left(
+          "The org '$orgDefinitionName' is not defined in the $configFileName "
+          "file.\r\n${_available(orgs)}",
+        ),
+      };
   }
 }
 
-Future<Either<String, String>> _execute(
-  List<ScratchOrgDefinition> orgDefinitions,
-  String orgDefinitionName,
-  bool setDefault,
-) async {
-  final orgDefinition = orgDefinitions.firstWhereOrOption(
-    (def) => def.name == orgDefinitionName,
-  );
+Future<Either<String, String>> _create(
+  ScratchOrgDefinition orgDefinition, {
+  required bool setDefault,
+}) async {
+  await getIt.get<CliRunner>().run(_build(orgDefinition, setDefault));
+  return Right('Scratch org created successfully.');
+}
 
-  switch (orgDefinition) {
-    case Some(:final value):
-      final additionalArguments = <(String, String)>[('alias', value.orgAlias)];
-
-      final command = _build(
-        value,
-        additionalArguments,
-        setDefault: setDefault,
-      );
-
-      final cliRunner = getIt.get<CliRunner>();
-      await cliRunner.run(command);
-      return Right('Scratch org created successfully.');
-    case None():
-      return Left(
-        "The org '$orgDefinitionName' is not defined in the $configFileName file.\r\n${_available(orgDefinitions)}",
-      );
-  }
+String _build(ScratchOrgDefinition orgDefinition, bool setDefault) {
+  return [
+    'sf org scratch create',
+    '--definition-file=${orgDefinition.definitionFile}',
+    '--alias=${orgDefinition.alias}',
+    if (setDefault) '--set-default',
+    if (orgDefinition.duration != null)
+      '--duration-days=${orgDefinition.duration}',
+  ].join(' ');
 }
 
 String _available(List<ScratchOrgDefinition> orgDefinitions) {
@@ -63,27 +69,4 @@ String _available(List<ScratchOrgDefinition> orgDefinitions) {
   }
 
   return 'These are the available orgs: ${orgDefinitions.map((e) => e.name).join(', ')}';
-}
-
-String _build(
-  ScratchOrgDefinition orgDefinition,
-  List<(String, String)> additionalArguments, {
-  required bool setDefault,
-}) {
-  var root =
-      'sf org scratch create --definition-file=${orgDefinition.definitionFile}';
-
-  for (final additionalArgument in additionalArguments) {
-    root = '$root --${additionalArgument.$1}=${additionalArgument.$2}';
-  }
-
-  if (setDefault) {
-    root = '$root --set-default';
-  }
-
-  if (orgDefinition.duration == null) {
-    return root;
-  }
-
-  return '$root --duration-days=${orgDefinition.duration}';
 }

@@ -54,10 +54,19 @@ jobs:
           workspace="$(mktemp -d)"
           cd "$workspace"
 
-          # Written out rather than `! cirrus ...`: `set -e` deliberately ignores a command whose
-          # status is inverted, so `! cirrus run boom` passes whatever cirrus does - which is the
-          # exact defect this step exists to catch. The output is kept so that what cirrus said can
-          # be asserted too.
+          # Every assertion goes through these two, for two reasons. `set -e` deliberately ignores
+          # a command whose status is inverted, so `! cirrus run boom` passes whatever cirrus does -
+          # the exact defect this step exists to catch. And piping into `grep -q` closes the pipe at
+          # the first match while cirrus is still writing, which fails the step for the wrong
+          # reason - so output is captured and grepped from the file.
+          exits_zero() {
+            if ! "$@" > last.log 2>&1; then
+              echo "Expected '$*' to succeed. It did not." >&2
+              cat last.log >&2
+              exit 1
+            fi
+          }
+
           exits_non_zero() {
             if "$@" > last.log 2>&1; then
               echo "Expected '$*' to exit non-zero. It exited 0." >&2
@@ -66,12 +75,17 @@ jobs:
             fi
           }
 
-          "$binary" --version
+          exits_zero "$binary" --version
 
-          # init writes a config where there is none, and refuses to overwrite one.
-          "$binary" init
+          # init writes a config where there is none, refuses to overwrite one, and writes
+          # something cirrus can then read.
+          exits_zero "$binary" init
           test -f cirrus.yaml
           exits_non_zero "$binary" init
+          # Reads back what init wrote: an empty config is a config with no commands in it, and
+          # reporting the missing command rather than a parse failure is how that shows.
+          exits_non_zero "$binary" run anything
+          grep -q 'Could not find a subcommand' last.log
 
           cat > cirrus.yaml <<'CONFIG'
           commands:
@@ -84,20 +98,17 @@ jobs:
           flows:
             demo:
               steps:
-                - command: hello
                 - command: deploy
             breaks:
               steps:
                 - command: boom
           CONFIG
 
-          # Captured rather than piped into grep: `grep -q` closes the pipe at the first match, and
-          # cirrus is still writing - which under `pipefail` fails the step for the wrong reason.
-          "$binary" run hello > hello.log 2>&1
-          grep -q hello-from-cirrus hello.log
+          exits_zero "$binary" run hello
+          grep -q hello-from-cirrus last.log
 
-          "$binary" flow demo > flow.log 2>&1
-          grep -q deploying flow.log
+          exits_zero "$binary" flow demo
+          grep -q deploying last.log
 
           # A failure has to reach the shell, not just the person reading the output.
           exits_non_zero "$binary" run boom

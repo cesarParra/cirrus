@@ -57,6 +57,14 @@ Future<int> run(
   final logger = getIt.get<Logger>();
   switch (runner) {
     case Right(:final value):
+      // `run` and `flow` offer subcommands read out of the config file, so dispatching them
+      // against a config that did not load reports a missing subcommand - the symptom - while the
+      // cause goes unmentioned. They fail here instead, once, before the arguments are parsed.
+      final configError = _configErrorFacing(value, arguments);
+      if (configError != null) {
+        return _failed(logger, configError);
+      }
+
       try {
         final result = await value.run(arguments);
 
@@ -69,14 +77,6 @@ Future<int> run(
           }
         }
       } on UsageException catch (e) {
-        // Every command and flow cirrus offers is read out of the config file, so when that file
-        // cannot be read there are no subcommands to find. Reporting the missing subcommand names
-        // the symptom and buries the cause.
-        final configError = _configError();
-        if (configError != null) {
-          return _failed(logger, configError);
-        }
-
         final status = _failed(logger, e.message);
         logger.log(value.usage);
         return status;
@@ -99,15 +99,14 @@ int _failed(Logger logger, String message) {
   return 1;
 }
 
-/// Why the config file did not load, when it did not. Null when it loaded, and when nothing has
-/// tried to - `cirrus init` and `--version` are answerable without one.
-String? _configError() {
-  if (!getIt.isRegistered<Either<String, Config>>()) {
+/// Why the config file did not load, when the command being run is one that needs it. `init` and
+/// `--version` are answerable without a config, and never ask for one.
+String? _configErrorFacing(CommandRunner runner, List<String> arguments) {
+  final invoked = arguments.isEmpty ? null : runner.commands[arguments.first];
+  if (invoked is! ReadsConfig ||
+      !getIt.isRegistered<Either<String, Config>>()) {
     return null;
   }
 
-  return switch (getIt.get<Either<String, Config>>()) {
-    Left(:final value) => value,
-    Right() => null,
-  };
+  return getIt.get<Either<String, Config>>().getLeft().toNullable();
 }
