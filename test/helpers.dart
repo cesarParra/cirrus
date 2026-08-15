@@ -1,5 +1,29 @@
 import 'package:chalkdart/chalk.dart';
+import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
+import 'package:fpdart/fpdart.dart';
+
+/// The recording doubles a command test runs against: a logger that keeps what it was told instead
+/// of printing it, and a runner that keeps the command line instead of running it.
+({TestLogger logger, TestRunner runner}) registerDoubles({
+  bool failing = false,
+}) {
+  final logger = TestLogger();
+  final runner = TestRunner(fails: failing);
+  getIt.registerSingleton<Logger>(logger);
+  getIt.registerSingleton<CliRunner>(runner);
+  return (logger: logger, runner: runner);
+}
+
+/// The config the command under test reads.
+void registerConfig(String yaml) {
+  getIt.registerSingleton<Either<String, Config>>(Right(Config.fromYaml(yaml)));
+}
+
+/// A config that could not be read, and why.
+void registerConfigFailure(String reason) {
+  getIt.registerSingleton<Either<String, Config>>(Left(reason));
+}
 
 class TestLogger implements Logger {
   final List<String> errors = [];
