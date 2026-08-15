@@ -43,12 +43,21 @@ class ScratchOrgDefinition {
   /// The org `cirrus run create_scratch` creates when it is not told which one.
   final bool isDefault;
 
+  /// Whether the org carries the project's package namespace. A subscriber's org does not, and an
+  /// org that stands in for one has to say so.
+  final bool namespace;
+
+  /// Minutes to wait for the org to be created. Salesforce's own default applies without it.
+  final int? wait;
+
   ScratchOrgDefinition(
     this.name,
     this.definitionFile, {
     this.duration,
     String? alias,
     this.isDefault = false,
+    this.namespace = true,
+    this.wait,
   }) : alias = alias ?? name;
 
   factory ScratchOrgDefinition.parse(MapEntry<String, dynamic> entry) {
@@ -60,6 +69,10 @@ class ScratchOrgDefinition {
         alias: _typed<String>(entry.value['alias'], 'alias', entry.key),
         isDefault:
             _typed<bool>(entry.value['default'], 'default', entry.key) ?? false,
+        namespace:
+            _typed<bool>(entry.value['namespace'], 'namespace', entry.key) ??
+            true,
+        wait: _typed<int>(entry.value['wait'], 'wait', entry.key),
       ),
       _ => throw "The org '${entry.key}' needs a 'definitionFile'.",
     };
