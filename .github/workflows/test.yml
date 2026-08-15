@@ -54,15 +54,35 @@ jobs:
           workspace="$(mktemp -d)"
           cd "$workspace"
 
+          # Written out rather than `! cirrus ...`: `set -e` deliberately ignores a command whose
+          # status is inverted, so `! cirrus run boom` passes whatever cirrus does - which is the
+          # exact defect this step exists to catch.
+          exits_non_zero() {
+            if "$@" > /dev/null 2>&1; then
+              echo "Expected '$*' to exit non-zero. It exited 0." >&2
+              exit 1
+            fi
+          }
+
           "$binary" --version
 
-          # init writes a config where there is none.
+          # init writes a config where there is none, and refuses to overwrite one.
           "$binary" init
           test -f cirrus.toml
+          exits_non_zero "$binary" init
 
           cat > cirrus.toml <<'CONFIG'
           [commands]
           hello = "echo hello-from-cirrus"
+          boom = "false"
+
+          [flow.demo]
+          steps = [ { type = "command", name = "boom" } ]
           CONFIG
 
           "$binary" run hello | grep -q hello-from-cirrus
+
+          # A failure has to reach the shell, not just the person reading the output.
+          exits_non_zero "$binary" run boom
+          exits_non_zero "$binary" flow demo
+          exits_non_zero "$binary" run no-such-command
