@@ -156,9 +156,9 @@ Options:
   - `major`: Increments X.0.0 (for breaking changes)
   - `minor`: Increments 0.X.0 (for new features)
   - `patch`: Increments 0.0.X (for bug fixes)
-  - `none`: Creates the version without touching `sfdx-project.json`, which is what a project whose
-    `versionNumber` ends in `.NEXT` wants - Salesforce moves the build number, and a pipeline that
-    cuts a version per run should not rewrite the file it checked out
+  - `none`: Leaves the version number alone, for a project whose `versionNumber` ends in `.NEXT`
+    and lets Salesforce choose the build number. `sfdx-project.json` is then left as it was found,
+    unless `--name` is given - that is a label, and setting it still writes the file
 - `--promote`: Whether to promote the package version after creation (default: false)
 - `-a, --name`: The name/label for the new version
 - `-c, --code-coverage`: Calculate and store code coverage percentage

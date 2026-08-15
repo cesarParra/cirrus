@@ -86,7 +86,6 @@ void main() {
 
       final runner = TestRunner();
       getIt.registerSingleton<CliRunner>(runner);
-      getIt.registerSingleton<TestLogger>(logger);
 
       final before = fakeFileSystem.contents;
 

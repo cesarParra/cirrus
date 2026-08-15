@@ -5,6 +5,8 @@ import 'package:cirrus/src/utils.dart';
 import 'package:fpdart/fpdart.dart';
 import 'dart:convert';
 
+import 'package:cli_script/cli_script.dart' as cli;
+
 class Create extends Command {
   @override
   String get description => 'Creates a new package version.';
@@ -32,9 +34,8 @@ class Create extends Command {
         'version-type',
         abbr: 't',
         help:
-            'The version type to increment the package to. `none` creates a version without '
-            'touching sfdx-project.json, which is what a project whose versionNumber ends in '
-            '`.NEXT` wants.',
+            'The version type to increment the package to. `none` leaves the version number as '
+            'it is, for a project that lets Salesforce choose the build number.',
         defaultsTo: 'minor',
         allowed: ['major', 'minor', 'patch', 'none'],
       )
@@ -143,17 +144,15 @@ class Create extends Command {
           return Left('No versionName found for package "$packageName".');
         }
 
-        // `none` leaves the file as it was found: the build number moves on Salesforce's side,
-        // and a pipeline that cuts a version per run must not rewrite what it checked out.
-        final newVersion = versionType == 'none'
-            ? packageVersion
+        // A `.NEXT` version number means Salesforce owns the build number, so `none` leaves the
+        // file as it was found.
+        final bumped = versionType == 'none'
+            ? null
             : incrementVersion(packageVersion, versionType);
+        final newVersion = bumped ?? packageVersion;
 
-        if (versionType != 'none' || versionName != null) {
-          if (versionName != null) {
-            dir = dir.cloneWith(versionName: versionName);
-          }
-          dir = dir.cloneWith(versionNumber: newVersion);
+        if (bumped != null || versionName != null) {
+          dir = dir.cloneWith(versionName: versionName, versionNumber: bumped);
 
           // Write the updated project data back to the file
           projectData['packageDirectories'] = packageJson.packageDirectories
@@ -170,20 +169,23 @@ class Create extends Command {
         final cliRunner = getIt.get<CliRunner>();
 
         // Run the command to create the package version
+        // Every value a user chose goes through `cli.arg`: the command line is parsed back into
+        // arguments by cli_script, and a package name or a path with a space in it becomes two
+        // arguments without it.
         final command = [
           'sf package version create',
           '--json',
-          '--package=$packageName',
+          '--package=${cli.arg(packageName)}',
           if (argResults?['code-coverage'] case true) '--code-coverage',
           if (argResults?['definition-file'] case String file)
-            '--definition-file=$file',
+            '--definition-file=${cli.arg(file)}',
           if (argResults?['installation-key'] case String key)
-            '--installation-key=$key',
+            '--installation-key=${cli.arg(key)}',
           if (argResults?['installation-key-bypass'] case true)
             '--installation-key-bypass',
           if (argResults?['target-dev-hub'] case String target)
-            '--target-dev-hub=$target',
-          if (argResults?['wait'] case String wait) '--wait=$wait',
+            '--target-dev-hub=${cli.arg(target)}',
+          if (argResults?['wait'] case String wait) '--wait=${cli.arg(wait)}',
           if (argResults?['async-validation'] case true) '--async-validation',
           if (argResults?['skip-validation'] case true) '--skip-validation',
           if (argResults?['verbose'] case true) '--verbose',
@@ -209,18 +211,22 @@ class Create extends Command {
           final promoteCommand = [
             'sf package version promote',
             '--no-prompt',
-            '--package=$packageVersionId',
+            '--package=${cli.arg(packageVersionId)}',
             if (argResults?['target-dev-hub'] case String target)
-              '--target-dev-hub=$target',
+              '--target-dev-hub=${cli.arg(target)}',
           ];
           await cliRunner.run(promoteCommand.join(' '));
         }
 
+        // Under `none` the build number is Salesforce's to choose, so there is no version number
+        // here to name - the one that was created is in the output above.
+        final created = bumped == null
+            ? 'A new version of package "$packageName"'
+            : 'Package "$packageName" version $newVersion';
+
         String message = switch (argResults?['promote']) {
-          true =>
-            'Package "$packageName" version $newVersion created and promoted successfully.',
-          _ =>
-            'Package "$packageName" version $newVersion created successfully.',
+          true => '$created created and promoted successfully.',
+          _ => '$created created successfully.',
         };
         return Right(message);
     }
