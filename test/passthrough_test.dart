@@ -8,14 +8,12 @@ import 'helpers.dart';
 /// one browser and the merge build runs it in all of them. Without this the config needs a command
 /// per caller, which is the duplication the config exists to remove.
 void main() {
-  late TestRunner runner;
-
   tearDown(() {
     getIt.reset();
   });
 
   test('what follows -- is appended to the command', () async {
-    (runner: runner, logger: _) = withConfig("""
+    final (:runner, logger: _) = withConfig("""
 commands:
   e2e: playwright test
 """);
@@ -29,7 +27,7 @@ commands:
   });
 
   test('an argument holding a space survives as one argument', () async {
-    (runner: runner, logger: _) = withConfig("""
+    final (:runner, logger: _) = withConfig("""
 commands:
   greet: echo
 """);
@@ -41,7 +39,7 @@ commands:
 
   test('prerequisites are left as they are written', () async {
     // The arguments belong to the command that was asked for, not to everything it drags in.
-    (runner: runner, logger: _) = withConfig("""
+    final (:runner, logger: _) = withConfig("""
 commands:
   build: echo building
   e2e:

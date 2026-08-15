@@ -2,7 +2,7 @@ import 'package:fpdart/fpdart.dart';
 
 import 'config.dart';
 import 'service_locator.dart';
-import 'utils.dart';
+import 'package:cli_script/cli_script.dart' as cli;
 
 /// One run of cirrus, and the commands it has already carried out.
 ///
@@ -68,7 +68,7 @@ class Execution {
     if (commandLine != null) {
       try {
         await getIt.get<CliRunner>().run(
-          [commandLine, ...arguments.map(asOneArgument)].join(' '),
+          [commandLine, ...arguments.map(cli.arg)].join(' '),
         );
       } catch (error) {
         return Left('$error');

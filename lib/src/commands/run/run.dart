@@ -80,10 +80,9 @@ class RunNamedCommand extends Command {
   @override
   Future<Either<String, String>> run() async {
     // Empty on success: a command that worked says nothing, the way it always has.
-    final result = await Execution(
-      config,
-    ).step(command.name, arguments: argResults?.rest ?? const []);
-
-    return result.map((_) => '');
+    return (await Execution(config).step(
+      command.name,
+      arguments: argResults?.rest ?? const [],
+    )).map((_) => '');
   }
 }

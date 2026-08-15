@@ -97,6 +97,7 @@ jobs:
             check:
               dependsOn: [build, deploy]
             boom: "false"
+            many: seq 1 200000
 
           flows:
             demo:
@@ -122,8 +123,21 @@ jobs:
           exits_zero "$binary" run hello -- --and-this
           grep -q -- '--and-this' last.log
 
-          # A reader that stops reading is not an error: `| head` closes the pipe mid-write.
-          "$binary" run hello | head -1 > /dev/null
+          # A reader that stops reading ends cirrus the way it ends any tool: quietly, with the
+          # status of a writer that took SIGPIPE. `hello` is too small to prove it - its one line
+          # fits in the pipe buffer and no write ever fails - so this needs a command that keeps
+          # writing after the reader has gone.
+          set +e
+          "$binary" run many > >(head -1 > /dev/null) 2> pipe.log
+          pipe_status=$?
+          set -e
+
+          test "$pipe_status" -eq 141
+          if grep -q 'Unhandled exception' pipe.log; then
+            echo "Expected a closed pipe to end quietly." >&2
+            cat pipe.log >&2
+            exit 1
+          fi
 
           # A flow's prerequisite runs, and its repeated step repeats.
           exits_zero "$binary" flow demo

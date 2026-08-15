@@ -1,4 +1,5 @@
 import 'package:cirrus/src/utils.dart';
+import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../service_locator.dart';
@@ -53,10 +54,12 @@ Future<Either<String, String>> _create(
 }
 
 String _build(ScratchOrgDefinition orgDefinition, bool setDefault) {
+  // The definition file and the alias come out of the config, and cli_script parses this string
+  // back into arguments - so a path or an alias with a space in it has to say it is one argument.
   return [
     'sf org scratch create',
-    '--definition-file=${orgDefinition.definitionFile}',
-    '--alias=${orgDefinition.alias}',
+    '--definition-file=${cli.arg(orgDefinition.definitionFile)}',
+    '--alias=${cli.arg(orgDefinition.alias)}',
     if (setDefault) '--set-default',
     if (orgDefinition.duration != null)
       '--duration-days=${orgDefinition.duration}',

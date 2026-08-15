@@ -187,17 +187,6 @@ orgs:
         },
       );
 
-      test('carries the namespace unless it says otherwise', () async {
-        registerConfig(oneOrg);
-
-        await run(
-          'run create_scratch -n default'.toArguments(),
-          configFileName: "",
-        );
-
-        expect(runner.args, isNot(contains('--no-namespace')));
-      });
-
       test('waits as long as the org asks', () async {
         registerConfig("""
 orgs:
@@ -214,7 +203,7 @@ orgs:
         expect(runner.args, contains('--wait=25'));
       });
 
-      test('does not wait when the org does not ask', () async {
+      test('is neither when the org asks for neither', () async {
         registerConfig(oneOrg);
 
         await run(
@@ -222,11 +211,28 @@ orgs:
           configFileName: "",
         );
 
-        expect(
-          runner.args.any((argument) => argument.startsWith('--wait')),
-          isFalse,
-        );
+        expect(runner.args, isNot(contains('--no-namespace')));
+        expect(runner.args, isNot(anyElement(startsWith('--wait'))));
       });
+    });
+
+    test('sends an alias with a space in it as one argument', () async {
+      // The command line is parsed back into arguments, so a value that was one thing in the
+      // config has to still be one thing by the time `sf` sees it.
+      registerConfig("""
+orgs:
+  spaced:
+    definitionFile: config/dev def.json
+    alias: my org
+""");
+
+      await run(
+        'run create_scratch -n spaced'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(runner.args, contains('--alias=my org'));
+      expect(runner.args, contains('--definition-file=config/dev def.json'));
     });
 
     group('when the command names no org', () {
