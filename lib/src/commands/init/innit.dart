@@ -11,7 +11,7 @@ class InitCommand extends Command {
   String get name => 'init';
 
   @override
-  String get description => 'Initializes the cirrus.toml file.';
+  String get description => 'Initializes the $configFileName file.';
 
   InitCommand(this.configFileName);
 

@@ -4,20 +4,27 @@ import '../../config.dart';
 import '../../service_locator.dart';
 
 Future<Either<String, String>> runCreateScratch(
-  String orgDefinitionName, {
+  String? orgDefinitionName, {
   required bool setDefault,
 }) async {
   final config = getIt.get<Either<String, Config>>();
 
   switch (config) {
     case Left(:final value):
-      return Left('Error parsing the cirrus.toml file: $value');
+      return Left('Error parsing the $configFileName file: $value');
     case Right(:final value):
-      return await _execute(
-        value.scratchOrgDefinitions,
-        orgDefinitionName,
-        setDefault,
-      );
+      // The org named on the command line, or the one the config marks as the default. Passing
+      // `-n` every time for the org a project almost always creates is what a default is for.
+      final requested = orgDefinitionName ?? value.defaultOrg?.name;
+
+      if (requested == null) {
+        return Left(
+          "No org to create. Name one with --name, or mark an org 'default: true' in "
+          "$configFileName.\r\n${_available(value.scratchOrgDefinitions)}",
+        );
+      }
+
+      return await _execute(value.scratchOrgDefinitions, requested, setDefault);
   }
 }
 
@@ -32,7 +39,7 @@ Future<Either<String, String>> _execute(
 
   switch (orgDefinition) {
     case Some(:final value):
-      final additionalArguments = <(String, String)>[('alias', value.name)];
+      final additionalArguments = <(String, String)>[('alias', value.orgAlias)];
 
       final command = _build(
         value,
@@ -45,9 +52,17 @@ Future<Either<String, String>> _execute(
       return Right('Scratch org created successfully.');
     case None():
       return Left(
-        "The org '$orgDefinitionName' is not defined in the cirrus.toml file.\r\nThese are the available orgs: ${orgDefinitions.map((e) => e.name).join(', ')}",
+        "The org '$orgDefinitionName' is not defined in the $configFileName file.\r\n${_available(orgDefinitions)}",
       );
   }
+}
+
+String _available(List<ScratchOrgDefinition> orgDefinitions) {
+  if (orgDefinitions.isEmpty) {
+    return 'No orgs are defined.';
+  }
+
+  return 'These are the available orgs: ${orgDefinitions.map((e) => e.name).join(', ')}';
 }
 
 String _build(

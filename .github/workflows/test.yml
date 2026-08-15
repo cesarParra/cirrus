@@ -56,10 +56,12 @@ jobs:
 
           # Written out rather than `! cirrus ...`: `set -e` deliberately ignores a command whose
           # status is inverted, so `! cirrus run boom` passes whatever cirrus does - which is the
-          # exact defect this step exists to catch.
+          # exact defect this step exists to catch. The output is kept so that what cirrus said can
+          # be asserted too.
           exits_non_zero() {
-            if "$@" > /dev/null 2>&1; then
+            if "$@" > last.log 2>&1; then
               echo "Expected '$*' to exit non-zero. It exited 0." >&2
+              cat last.log >&2
               exit 1
             fi
           }
@@ -68,21 +70,41 @@ jobs:
 
           # init writes a config where there is none, and refuses to overwrite one.
           "$binary" init
-          test -f cirrus.toml
+          test -f cirrus.yaml
           exits_non_zero "$binary" init
 
-          cat > cirrus.toml <<'CONFIG'
-          [commands]
-          hello = "echo hello-from-cirrus"
-          boom = "false"
+          cat > cirrus.yaml <<'CONFIG'
+          commands:
+            hello: echo hello-from-cirrus
+            deploy:
+              description: Ship it.
+              run: echo deploying
+            boom: "false"
 
-          [flow.demo]
-          steps = [ { type = "command", name = "boom" } ]
+          flows:
+            demo:
+              steps:
+                - command: hello
+                - command: deploy
+            breaks:
+              steps:
+                - command: boom
           CONFIG
 
-          "$binary" run hello | grep -q hello-from-cirrus
+          # Captured rather than piped into grep: `grep -q` closes the pipe at the first match, and
+          # cirrus is still writing - which under `pipefail` fails the step for the wrong reason.
+          "$binary" run hello > hello.log 2>&1
+          grep -q hello-from-cirrus hello.log
+
+          "$binary" flow demo > flow.log 2>&1
+          grep -q deploying flow.log
 
           # A failure has to reach the shell, not just the person reading the output.
           exits_non_zero "$binary" run boom
-          exits_non_zero "$binary" flow demo
+          exits_non_zero "$binary" flow breaks
           exits_non_zero "$binary" run no-such-command
+
+          # A project still on 0.2.x is told what to do, rather than that its config is missing.
+          mv cirrus.yaml cirrus.toml
+          exits_non_zero "$binary" run hello
+          grep -q 'reads cirrus.yaml as of 0.3.0' last.log

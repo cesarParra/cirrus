@@ -1,4 +1,4 @@
 // Generated file. Do not edit manually.
 // Run 'node scripts/bumg-version.js' to update.
 
-const String appVersion = '0.2.1';
+const String appVersion = '0.3.0';

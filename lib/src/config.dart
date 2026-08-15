@@ -1,41 +1,104 @@
+import 'package:yaml/yaml.dart';
+
+/// The file cirrus reads. Named once, so that every message about it agrees.
+const configFileName = 'cirrus.yaml';
+
+/// The document as plain Dart collections. `package:yaml` hands back `YamlMap` and `YamlList`,
+/// which are `Map<dynamic, dynamic>` and therefore match none of the patterns below - and nothing
+/// past this point should know which parser produced the configuration.
+Map<String, dynamic> asPlainMap(dynamic document) {
+  final plain = _plain(document);
+  return switch (plain) {
+    Map<String, dynamic> map => map,
+    null => throw 'The $configFileName file is empty.',
+    _ =>
+      throw "The $configFileName file describes 'orgs', 'commands' and 'flows'.",
+  };
+}
+
+dynamic _plain(dynamic node) => switch (node) {
+  YamlMap map => {
+    for (final entry in map.entries) '${entry.key}': _plain(entry.value),
+  },
+  YamlList list => list.map(_plain).toList(),
+  _ => node,
+};
+
 class ScratchOrgDefinition {
   final String name;
   final String definitionFile;
   final int? duration;
 
-  ScratchOrgDefinition(this.name, this.definitionFile, [this.duration]);
+  /// What the org is called in the CLI once it exists. Defaults to the name it is keyed by, which
+  /// is what a definition that does not care wants.
+  final String? alias;
 
-  factory ScratchOrgDefinition.parse(dynamic def) {
-    return switch (def) {
-      {"name": String name, "definitionFile": String definitionFile} =>
-        ScratchOrgDefinition(name, definitionFile, def['duration']),
-      _ => throw 'Could not parse scratch org definition.',
+  /// The org `cirrus run create_scratch` creates when it is not told which one.
+  final bool isDefault;
+
+  ScratchOrgDefinition(
+    this.name,
+    this.definitionFile, {
+    this.duration,
+    this.alias,
+    this.isDefault = false,
+  });
+
+  /// The alias to create the org under.
+  String get orgAlias => alias ?? name;
+
+  factory ScratchOrgDefinition.parse(MapEntry<String, dynamic> entry) {
+    return switch (entry.value) {
+      {'definitionFile': String definitionFile} => ScratchOrgDefinition(
+        entry.key,
+        definitionFile,
+        duration: entry.value['duration'],
+        alias: entry.value['alias'],
+        isDefault: entry.value['default'] ?? false,
+      ),
+      _ => throw "The org '${entry.key}' needs a 'definitionFile'.",
     };
   }
 }
 
 class NamedCommand {
   final String name;
-  final String command;
+  final String run;
+  final String? description;
 
-  NamedCommand(this.name, this.command);
+  NamedCommand(this.name, this.run, {this.description});
 
-  factory NamedCommand.parse(MapEntry entry) {
-    return NamedCommand(entry.key, entry.value);
+  /// A command is either the command line itself, or a mapping carrying it alongside anything else
+  /// worth saying about the command.
+  factory NamedCommand.parse(MapEntry<String, dynamic> entry) {
+    return switch (entry.value) {
+      String run => NamedCommand(entry.key, run),
+      {'run': String run} => NamedCommand(
+        entry.key,
+        run,
+        description: entry.value['description'],
+      ),
+      _ => throw "The command '${entry.key}' has no 'run'.",
+    };
   }
 }
 
+/// A step names its kind with its first key: `command: deploy` rather than a `type` beside a
+/// `name`. What the step needs is the value, and what it does is the key.
 sealed class FlowStep {
   FlowStep();
 
-  factory FlowStep.parse(dynamic unparsed) {
+  factory FlowStep.parse(String flowName, dynamic unparsed) {
     return switch (unparsed) {
-      {'type': 'create_scratch', 'org': String orgName} =>
-        CreateScratchFlowStep(orgName, unparsed['set-default']),
-      {'type': 'command', 'name': String commandName} => RunCommandFlowStep(
-        commandName,
+      {'createScratch': String orgName} => CreateScratchFlowStep(
+        orgName,
+        unparsed['setDefault'],
       ),
-      _ => throw 'Unable to determine the type of flow step $unparsed',
+      {'command': String commandName} => RunCommandFlowStep(commandName),
+      Map<String, dynamic> step =>
+        throw "'${step.keys.join(', ')}' in the '$flowName' flow is not a kind of step cirrus "
+            "knows. A step is 'createScratch' or 'command'.",
+      _ => throw "A step of the '$flowName' flow is not a mapping: $unparsed",
     };
   }
 
@@ -72,11 +135,13 @@ class Flow {
 
   Flow(this.name, {this.description, required this.steps});
 
-  factory Flow.parse(MapEntry entry) {
-    final steps = (entry.value['steps'] ?? [])
-        .map(FlowStep.parse)
-        .toList()
-        .cast<FlowStep>();
+  factory Flow.parse(MapEntry<String, dynamic> entry) {
+    final steps = switch (entry.value) {
+      {'steps': List<dynamic> steps} =>
+        steps.map((step) => FlowStep.parse(entry.key, step)).toList(),
+      _ => throw "The flow '${entry.key}' needs 'steps'.",
+    };
+
     return Flow(
       entry.key,
       description: entry.value['description'],
@@ -97,36 +162,37 @@ class Config {
   });
 
   factory Config.parse(Map<String, dynamic> unparsed) {
+    final orgs = _section(unparsed, 'orgs', ScratchOrgDefinition.parse);
+
+    final defaults = orgs.where((org) => org.isDefault);
+    if (defaults.length > 1) {
+      throw "Only one org is the default one, and ${defaults.map((org) => "'${org.name}'").join(' and ')} both say they are.";
+    }
+
     return Config(
-      scratchOrgDefinitions: parseScratchOrgs(unparsed),
-      commands: parseCommands(unparsed),
-      flows: parseFlows(unparsed),
+      scratchOrgDefinitions: orgs,
+      commands: _section(unparsed, 'commands', NamedCommand.parse),
+      flows: _section(unparsed, 'flows', Flow.parse),
     );
   }
 
-  static List<ScratchOrgDefinition> parseScratchOrgs(
+  /// The org to create when the command line does not name one. Null when no org is marked, which
+  /// is a question for whoever asked rather than a guess made here.
+  ScratchOrgDefinition? get defaultOrg =>
+      scratchOrgDefinitions.where((org) => org.isDefault).firstOrNull;
+
+  /// Every section is a mapping keyed by the name of the thing it describes, so an absent one is
+  /// an empty list and a malformed one says which section it is rather than quietly matching no
+  /// pattern.
+  static List<T> _section<T>(
     Map<String, dynamic> unparsed,
+    String name,
+    T Function(MapEntry<String, dynamic>) parse,
   ) {
-    return switch (unparsed) {
-      {'orgs': List<dynamic> orgs} =>
-        orgs.map(ScratchOrgDefinition.parse).toList(),
-      _ => <ScratchOrgDefinition>[],
-    };
-  }
-
-  static List<NamedCommand> parseCommands(Map<String, dynamic> unparsed) {
-    return switch (unparsed) {
-      {'commands': Map<String, dynamic> commands} =>
-        commands.entries.map(NamedCommand.parse).toList(),
-      _ => [],
-    };
-  }
-
-  static List<Flow> parseFlows(Map<String, dynamic> unparsed) {
-    return switch (unparsed) {
-      {'flow': Map<String, dynamic> flowMap} =>
-        flowMap.entries.map(Flow.parse).toList(),
-      _ => [],
+    return switch (unparsed[name]) {
+      null => <T>[],
+      Map<String, dynamic> entries => entries.entries.map(parse).toList(),
+      _ => throw "'$name' is a mapping keyed by name.",
     };
   }
 }
