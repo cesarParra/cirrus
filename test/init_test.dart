@@ -21,7 +21,7 @@ void main() {
   });
 
   group('init', () {
-    const testFileName = "test_tmp/cirrus.yaml";
+    const testFileName = "test_tmp/$configFileName";
 
     setUp(() {
       // Ensure the test_tmp directory exists

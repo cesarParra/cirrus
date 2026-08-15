@@ -1,18 +1,17 @@
+import 'package:cirrus/src/commands/run/run.dart';
 import 'package:cirrus/src/commands/runner.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
 import 'helpers.dart';
 
 void main() {
   late TestLogger logger;
+  late TestRunner runner;
 
   setUp(() {
-    logger = TestLogger();
-    getIt.registerSingleton<Logger>(logger);
+    (logger: logger, runner: runner) = registerDoubles();
   });
 
   tearDown(() {
@@ -21,21 +20,10 @@ void main() {
 
   group('generic commands', () {
     test('can run any defined command', () async {
-      Map<String, dynamic> parser() {
-        return asPlainMap(
-          loadYaml("""
+      registerConfig("""
 commands:
   hello: echo 'Hello, World!'
-"""),
-        );
-      }
-
-      final runner = TestRunner();
-
-      getIt.registerSingleton<Either<String, Config>>(
-        Right(Config.parse(parser())),
-      );
-      getIt.registerSingleton<CliRunner>(runner);
+""");
 
       await run('run hello'.toArguments(), configFileName: "");
 
@@ -45,18 +33,10 @@ commands:
     });
 
     test('errors when the command is not defined', () async {
-      Map<String, dynamic> parser() {
-        return asPlainMap(
-          loadYaml("""
+      registerConfig("""
 commands:
   hello: echo 'Hello, World!'
-"""),
-        );
-      }
-
-      getIt.registerSingleton<Either<String, Config>>(
-        Right(Config.parse(parser())),
-      );
+""");
 
       await run('run non_existent_command'.toArguments(), configFileName: "");
 
@@ -76,8 +56,8 @@ commands:
       // Every command `cirrus run` offers comes from the config file, so when that file cannot be
       // read there are no commands at all - and reporting the missing subcommand names the
       // symptom while hiding the cause.
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('Found a cirrus.toml. Cirrus reads cirrus.yaml as of 0.3.0.'),
+      registerConfigFailure(
+        'Found a cirrus.toml. Cirrus reads $configFileName as of 0.3.0.',
       );
 
       await run('run hello'.toArguments(), configFileName: "");
@@ -88,6 +68,31 @@ commands:
         logger.errors.first,
         isNot(contains('Could not find a subcommand')),
       );
+    });
+
+    test('describes itself the way the command that defines it does', () {
+      final described = RunNamedCommand(
+        NamedCommand(
+          'deploy',
+          'sf project deploy start',
+          description: 'Ship it to an org.',
+        ),
+      );
+      final undescribed = RunNamedCommand(NamedCommand('hello', 'echo hi'));
+
+      expect(described.description, 'Ship it to an org.');
+      expect(undescribed.description, contains('hello'));
+    });
+
+    test('leaves a usage error alone for a command that needs no config', () async {
+      // `init` exists to be run where there is no config, so a mistyped option there is the user's
+      // own mistake and has to be reported as one - the config error would bury it.
+      registerConfigFailure('Found a cirrus.toml.');
+
+      await run('init --nope'.toArguments(), configFileName: "");
+
+      expect(logger.errors.first, contains('nope'));
+      expect(logger.errors.first, isNot(contains('cirrus.toml')));
     });
   });
 }

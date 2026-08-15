@@ -1,8 +1,8 @@
+import 'package:cirrus/src/commands/init/init_template.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:test/test.dart';
-import 'package:yaml/yaml.dart';
 
-Config parse(String yaml) => Config.parse(asPlainMap(loadYaml(yaml)));
+Config parse(String yaml) => Config.fromYaml(yaml);
 
 void main() {
   group('orgs', () {
@@ -97,17 +97,42 @@ flows:
       expect((flow.steps.last as RunCommandFlowStep).commandName, 'deploy');
     });
 
-    test('leave setDefault unset when the step does not say', () {
+    test('set the created org as the default unless a step says otherwise', () {
       final config = parse("""
 flows:
   setup:
     steps:
       - createScratch: dev
+      - createScratch: ci
+        setDefault: false
 """);
 
+      final steps = config.flows.single.steps.cast<CreateScratchFlowStep>();
+      expect(steps.first.setDefault, isTrue);
+      expect(steps.last.setDefault, isFalse);
+    });
+
+    test('refuse a step that is two kinds of step at once', () {
       expect(
-        (config.flows.single.steps.single as CreateScratchFlowStep).setDefault,
-        isNull,
+        () => parse("""
+flows:
+  setup:
+    steps:
+      - createScratch: dev
+        command: deploy
+"""),
+        throwsA(allOf(contains('setup'), contains('one thing'))),
+      );
+    });
+
+    test('refuse a flow with no steps in it', () {
+      expect(
+        () => parse("""
+flows:
+  setup:
+    steps: []
+"""),
+        throwsA(contains('setup')),
       );
     });
 
@@ -124,11 +149,41 @@ flows:
     });
   });
 
-  test('an empty file is a config with nothing in it', () {
-    final config = parse("commands:\n  hello: echo hello\n");
+  group('a field of the wrong type', () {
+    test('names the field and the org it is in', () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+    duration: thirty
+"""),
+        throwsA(allOf(contains('duration'), contains('dev'))),
+      );
+    });
+  });
 
-    expect(config.scratchOrgDefinitions, isEmpty);
-    expect(config.flows, isEmpty);
-    expect(config.commands, hasLength(1));
+  group('a document with nothing in it', () {
+    test('is a config with nothing in it, rather than an error', () {
+      final config = parse("");
+
+      expect(config.scratchOrgDefinitions, isEmpty);
+      expect(config.commands, isEmpty);
+      expect(config.flows, isEmpty);
+    });
+
+    test('is what `cirrus init` writes, so cirrus can read it', () {
+      // The template is entirely comments, which YAML reads as nothing at all. Parsing it here is
+      // the only thing that checks the file cirrus writes against the parser cirrus reads it with.
+      final config = parse(configContent);
+
+      expect(config.scratchOrgDefinitions, isEmpty);
+      expect(config.commands, isEmpty);
+      expect(config.flows, isEmpty);
+    });
+  });
+
+  test('a section that is not a mapping says which section', () {
+    expect(() => parse("commands: nope\n"), throwsA(contains('commands')));
   });
 }
