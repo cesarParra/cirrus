@@ -26,17 +26,27 @@ class TestRunner implements CliRunner {
   List<String> args = [];
   final String simulatedOutput;
 
-  TestRunner({String? simulatedOutput})
+  /// Behaves like a command that exited non-zero. cli_script throws in that case, which is how a
+  /// real failure reaches cirrus.
+  final bool fails;
+
+  TestRunner({String? simulatedOutput, this.fails = false})
     : simulatedOutput = simulatedOutput ?? 'Simulated output';
 
   @override
   Future<void> run(String command) async {
     args.addAll(command.toArguments());
+    if (fails) {
+      throw '$command failed with exit code 1.';
+    }
   }
 
   @override
   Future<String> output(String command) async {
     args.addAll(command.toArguments());
+    if (fails) {
+      throw '$command failed with exit code 1.';
+    }
     // Simulate output for testing purposes
     return simulatedOutput;
   }
