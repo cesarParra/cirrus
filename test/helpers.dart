@@ -48,6 +48,10 @@ class TestLogger implements Logger {
 
 class TestRunner implements CliRunner {
   List<String> args = [];
+
+  /// The command lines it was asked to run, whole and in order - which is what a test about
+  /// ordering and about running something once needs to see.
+  final List<String> commands = [];
   final String simulatedOutput;
 
   /// Behaves like a command that exited non-zero. cli_script throws in that case, which is how a
@@ -59,6 +63,7 @@ class TestRunner implements CliRunner {
 
   @override
   Future<void> run(String command) async {
+    commands.add(command);
     args.addAll(command.toArguments());
     if (fails) {
       throw '$command failed with exit code 1.';
@@ -67,6 +72,7 @@ class TestRunner implements CliRunner {
 
   @override
   Future<String> output(String command) async {
+    commands.add(command);
     args.addAll(command.toArguments());
     if (fails) {
       throw '$command failed with exit code 1.';

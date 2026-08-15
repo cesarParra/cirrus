@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:fpdart/fpdart.dart';
 
 import '../../config.dart';
+import '../../execution.dart';
 import '../../service_locator.dart';
 import 'create_scratch.dart';
 
@@ -13,26 +14,13 @@ class RunCommand extends Command implements ReadsConfig {
   String get description => 'Runs a standalone command';
 
   RunCommand() {
-    // Parse the config file to pass the necessary information
-    // each individual command need
-
-    addCreateScratchSubcommand();
-    addConfiguredSubcommands();
-  }
-
-  void addCreateScratchSubcommand() {
     addSubcommand(CreateScratchCommand());
-  }
 
-  void addConfiguredSubcommands() {
-    final config = getIt.get<Either<String, Config>>();
-    switch (config) {
-      case Left():
-        return;
-      case Right(:final value):
-        for (final namedCommand in value.commands) {
-          addSubcommand(RunNamedCommand(namedCommand));
-        }
+    // A config that did not load is reported before any command is dispatched, so there are simply
+    // no configured commands to offer here.
+    final config = getIt.get<Either<String, Config>>().getRight().toNullable();
+    for (final namedCommand in config?.commands ?? const <NamedCommand>[]) {
+      addSubcommand(RunNamedCommand(config!, namedCommand));
     }
   }
 }
@@ -74,6 +62,7 @@ class CreateScratchCommand extends Command {
 }
 
 class RunNamedCommand extends Command {
+  final Config config;
   final NamedCommand command;
 
   @override
@@ -82,11 +71,14 @@ class RunNamedCommand extends Command {
   @override
   String get description => command.description ?? 'Execute the $name command.';
 
-  RunNamedCommand(this.command);
+  RunNamedCommand(this.config, this.command);
 
   @override
   Future<void> run() async {
-    final cliRunner = getIt.get<CliRunner>();
-    await cliRunner.run(command.run);
+    // Thrown rather than returned: a command that worked says nothing, the way it always has, and
+    // the runner turns anything thrown into the reported failure and a non-zero status.
+    if (await Execution(config).step(command.name) case Left(:final value)) {
+      throw value;
+    }
   }
 }
