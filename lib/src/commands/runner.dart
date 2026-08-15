@@ -71,7 +71,11 @@ Future<int> run(
         if (result is Either<String, String>) {
           switch (result) {
             case Right(:final value):
-              logger.success(value);
+              // A command that finished with nothing to say finishes silently, which is what
+              // `cirrus run` has always done.
+              if (value.isNotEmpty) {
+                logger.success(value);
+              }
             case Left(:final value):
               return _failed(logger, value);
           }

@@ -71,6 +71,11 @@ void registerDependencies(String configFileName) {
   );
 }
 
+/// The config, when it loaded. Null when it did not - which is reported before any command that
+/// needs one is dispatched, so a caller building subcommands has nothing to add and nothing to say.
+Config? loadedConfig() =>
+    getIt.get<Either<String, Config>>().getRight().toNullable();
+
 Either<String, Config> loadConfig(ConfigParser parser) {
   return Either.tryCatch(() {
     final unparsed = parser();

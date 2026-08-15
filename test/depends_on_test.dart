@@ -12,20 +12,13 @@ void main() {
   late TestLogger logger;
   late TestRunner runner;
 
-  setUp(() {
-    (logger: logger, runner: runner) = registerDoubles();
-  });
-
   tearDown(() {
     getIt.reset();
   });
 
-  /// The commands the runner was asked to run, in the order it was asked.
-  List<String> ran() => runner.commands;
-
   group('a command with prerequisites', () {
     test('runs them before itself', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   build: echo building
   test:
@@ -36,11 +29,11 @@ commands:
       await run('run test'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
-      expect(ran(), ['echo building', 'echo testing']);
+      expect(runner.commands, ['echo building', 'echo testing']);
     });
 
     test('runs them in the order they are written', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   tw: echo tailwind
   lwc: echo lwc
@@ -51,11 +44,11 @@ commands:
 
       await run('run build'.toArguments(), configFileName: "");
 
-      expect(ran(), ['echo tailwind', 'echo lwc', 'echo core']);
+      expect(runner.commands, ['echo tailwind', 'echo lwc', 'echo core']);
     });
 
     test('runs a prerequisite of a prerequisite first', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   tw: echo tailwind
   build:
@@ -68,11 +61,15 @@ commands:
 
       await run('run check'.toArguments(), configFileName: "");
 
-      expect(ran(), ['echo tailwind', 'echo building', 'echo checking']);
+      expect(runner.commands, [
+        'echo tailwind',
+        'echo building',
+        'echo checking',
+      ]);
     });
 
     test('runs a shared prerequisite once', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   build: echo building
   lint:
@@ -87,11 +84,15 @@ commands:
 
       await run('run check'.toArguments(), configFileName: "");
 
-      expect(ran(), ['echo building', 'echo linting', 'echo testing']);
+      expect(runner.commands, [
+        'echo building',
+        'echo linting',
+        'echo testing',
+      ]);
     });
 
     test('needs no command line of its own', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   lint: echo linting
   check:
@@ -102,30 +103,28 @@ commands:
       await run('run check'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
-      expect(ran(), ['echo linting']);
+      expect(runner.commands, ['echo linting']);
     });
 
     test('does not run when a prerequisite fails', () async {
-      await getIt.reset();
-      (logger: logger, runner: runner) = registerDoubles(failing: true);
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   build: exit 1
   test:
     run: echo testing
     dependsOn: [build]
-""");
+""", failing: true);
 
       final status = await run('run test'.toArguments(), configFileName: "");
 
       expect(status, isNonZero);
-      expect(ran(), ['exit 1']);
+      expect(runner.commands, ['exit 1']);
     });
   });
 
   group('a flow with prerequisites', () {
     test('runs them before its first step', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   build: echo building
   deploy: echo deploying
@@ -140,11 +139,11 @@ flows:
       await run('flow release'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
-      expect(ran(), ['echo building', 'echo deploying']);
+      expect(runner.commands, ['echo building', 'echo deploying']);
     });
 
     test('runs a prerequisite of a step it shares once', () async {
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   build: echo building
   deploy:
@@ -160,12 +159,12 @@ flows:
 
       await run('flow release'.toArguments(), configFileName: "");
 
-      expect(ran(), ['echo building', 'echo deploying']);
+      expect(runner.commands, ['echo building', 'echo deploying']);
     });
 
     test('runs a command named twice in its steps twice', () async {
       // Steps are an order somebody wrote down, and repeating one is a thing they can mean.
-      registerConfig("""
+      (logger: logger, runner: runner) = withConfig("""
 commands:
   deploy: echo deploying
 
@@ -178,7 +177,7 @@ flows:
 
       await run('flow twice'.toArguments(), configFileName: "");
 
-      expect(ran(), ['echo deploying', 'echo deploying']);
+      expect(runner.commands, ['echo deploying', 'echo deploying']);
     });
   });
 
@@ -219,6 +218,54 @@ commands:
     dependsOn: [a]
 """),
         throwsA(contains('a')),
+      );
+    });
+
+    test('is refused when a flow step names no command', () {
+      // The failure this exists to prevent: found while running, the flow has already created an
+      // org and deployed into it before reaching the step that names nothing.
+      expect(
+        () => Config.fromYaml("""
+commands:
+  deploy: echo deploying
+
+flows:
+  release:
+    steps:
+      - command: deploy
+      - command: nope
+"""),
+        throwsA(allOf(contains('release'), contains('nope'))),
+      );
+    });
+
+    test('is refused when a flow step names no org', () {
+      expect(
+        () => Config.fromYaml("""
+flows:
+  release:
+    steps:
+      - createScratch: nope
+"""),
+        throwsA(allOf(contains('release'), contains('nope'))),
+      );
+    });
+
+    test('names the cycle rather than the way into it', () {
+      expect(
+        () => Config.fromYaml("""
+commands:
+  a:
+    run: echo a
+    dependsOn: [b]
+  b:
+    run: echo b
+    dependsOn: [c]
+  c:
+    run: echo c
+    dependsOn: [b]
+"""),
+        throwsA(allOf(contains("'b' -> 'c' -> 'b'"), isNot(contains("'a'")))),
       );
     });
 

@@ -299,7 +299,9 @@ commands:
     description: Every deployable artifact.
     dependsOn: [tw, compile]
 
-  lint: eslint .
+  lint:
+    run: eslint .
+    dependsOn: [build]
   test:
     run: vitest run
     dependsOn: [build]
@@ -309,8 +311,8 @@ commands:
     dependsOn: [lint, test]
 ```
 
-`cirrus run check` runs `lint`, then `tw`, `compile` and `test` - and `build` happens once even
-though both `test` and `check` reach it. A command with only `dependsOn` and no `run`, like `build`
+`cirrus run check` runs `tw`, `compile`, `lint`, `test` - and `build` happens once, though both
+`lint` and `test` name it. A command with only `dependsOn` and no `run`, like `build`
 and `check` above, is a name for its prerequisites and runs nothing itself.
 
 Prerequisites are checked when the config is read, so a name that matches no command, or a chain

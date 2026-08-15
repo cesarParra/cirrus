@@ -2,7 +2,6 @@ import 'package:fpdart/fpdart.dart';
 
 import 'config.dart';
 import 'service_locator.dart';
-import 'utils.dart';
 
 /// One run of cirrus, and the commands it has already carried out.
 ///
@@ -21,25 +20,26 @@ class Execution {
 
   /// Runs [name], whatever has run before it. Its prerequisites still run at most once.
   Future<Either<String, void>> step(String name) async {
-    return switch (_command(name)) {
-      Some(:final value) => await _execute(value),
-      None() => Left("Command $name not found"),
-    };
-  }
+    final command = config.command(name);
 
-  /// Runs [name] unless this run already has.
-  Future<Either<String, void>> prerequisite(String name) async {
-    if (_completed.contains(name)) {
-      return Right(null);
+    // Every name in the config is checked when it is read, so this is reachable only from a
+    // caller that made one up.
+    if (command == null) {
+      return Left("Command $name not found");
     }
 
-    return await step(name);
+    return await _execute(command);
   }
 
-  /// Runs everything in [names], in the order given, stopping at the first that fails.
+  /// Runs everything in [names] that this run has not already, in the order given, stopping at the
+  /// first that fails.
   Future<Either<String, void>> prerequisites(List<String> names) async {
     for (final name in names) {
-      final result = await prerequisite(name);
+      if (_completed.contains(name)) {
+        continue;
+      }
+
+      final result = await step(name);
       if (result.isLeft()) {
         return result;
       }
@@ -66,7 +66,4 @@ class Execution {
     _completed.add(command.name);
     return Right(null);
   }
-
-  Option<NamedCommand> _command(String name) =>
-      config.commands.firstWhereOrOption((command) => command.name == name);
 }

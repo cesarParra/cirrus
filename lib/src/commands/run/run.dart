@@ -18,9 +18,13 @@ class RunCommand extends Command implements ReadsConfig {
 
     // A config that did not load is reported before any command is dispatched, so there are simply
     // no configured commands to offer here.
-    final config = getIt.get<Either<String, Config>>().getRight().toNullable();
-    for (final namedCommand in config?.commands ?? const <NamedCommand>[]) {
-      addSubcommand(RunNamedCommand(config!, namedCommand));
+    final config = loadedConfig();
+    if (config == null) {
+      return;
+    }
+
+    for (final namedCommand in config.commands) {
+      addSubcommand(RunNamedCommand(config, namedCommand));
     }
   }
 }
@@ -74,11 +78,8 @@ class RunNamedCommand extends Command {
   RunNamedCommand(this.config, this.command);
 
   @override
-  Future<void> run() async {
-    // Thrown rather than returned: a command that worked says nothing, the way it always has, and
-    // the runner turns anything thrown into the reported failure and a non-zero status.
-    if (await Execution(config).step(command.name) case Left(:final value)) {
-      throw value;
-    }
+  Future<Either<String, String>> run() async {
+    // Empty on success: a command that worked says nothing, the way it always has.
+    return (await Execution(config).step(command.name)).map((_) => '');
   }
 }

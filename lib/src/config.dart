@@ -87,8 +87,7 @@ class NamedCommand {
 
   final String? description;
 
-  /// What has to have happened before this can run. A prerequisite, not a step: it runs once
-  /// however many times it is named, and the order between siblings is the order written.
+  /// The commands that must have run before this one, in the order written.
   final List<String> dependsOn;
 
   NamedCommand(
@@ -101,16 +100,17 @@ class NamedCommand {
   /// A command is either the command line itself, or a mapping carrying it alongside anything else
   /// worth saying about the command.
   factory NamedCommand.parse(MapEntry<String, dynamic> entry) {
-    if (entry.value case String run) {
-      return NamedCommand(entry.key, run: run);
-    }
+    // Narrowed once, so that every read below is a plain read of a mapping.
+    final definition = switch (entry.value) {
+      String run => {'run': run},
+      Map<String, dynamic> mapping => mapping,
+      _ =>
+        throw "The command '${entry.key}' is a command line, or a mapping carrying one, and this "
+            "one is a ${entry.value.runtimeType}.",
+    };
 
-    final dependsOn = _dependsOn(entry.value, entry.key);
-    final run = _typed<String>(
-      entry.value is Map ? entry.value['run'] : null,
-      'run',
-      entry.key,
-    );
+    final run = _typed<String>(definition['run'], 'run', entry.key);
+    final dependsOn = _dependsOn(definition, entry.key);
 
     if (run == null && dependsOn.isEmpty) {
       throw "The command '${entry.key}' has no 'run' and no 'dependsOn', so there is nothing for "
@@ -121,7 +121,7 @@ class NamedCommand {
       entry.key,
       run: run,
       description: _typed<String>(
-        entry.value['description'],
+        definition['description'],
         'description',
         entry.key,
       ),
@@ -130,18 +130,23 @@ class NamedCommand {
   }
 }
 
-/// The prerequisites named by an org, command or flow definition.
-List<String> _dependsOn(dynamic definition, String owner) {
-  if (definition is! Map<String, dynamic>) {
+/// The prerequisites named by a command or a flow.
+List<String> _dependsOn(Map<String, dynamic> definition, String owner) {
+  final named = _typed<List<dynamic>>(
+    definition['dependsOn'],
+    'dependsOn',
+    owner,
+  );
+
+  if (named == null) {
     return const [];
   }
 
-  return switch (definition['dependsOn']) {
-    null => const [],
-    List<dynamic> names when names.every((name) => name is String) =>
-      names.cast<String>(),
-    _ => throw "'dependsOn' of '$owner' is a list of command names.",
-  };
+  if (named.any((name) => name is! String)) {
+    throw "'dependsOn' of '$owner' is a list of command names.";
+  }
+
+  return named.cast<String>();
 }
 
 /// A step names its kind with its first key: `command: deploy` rather than a `type` beside a
@@ -204,8 +209,7 @@ class Flow {
   final String? description;
   final List<FlowStep> steps;
 
-  /// What has to have happened before the first step, run once each - so a flow says `dependsOn:
-  /// [build]` rather than opening with a step that builds.
+  /// The commands that must have run before the first step, in the order written.
   final List<String> dependsOn;
 
   Flow(
@@ -216,21 +220,23 @@ class Flow {
   });
 
   factory Flow.parse(MapEntry<String, dynamic> entry) {
-    final steps = switch (entry.value) {
+    final definition = switch (entry.value) {
       {'steps': List<dynamic> steps} when steps.isNotEmpty =>
-        steps.map((step) => FlowStep.parse(entry.key, step)).toList(),
+        entry.value as Map<String, dynamic>,
       _ => throw "The flow '${entry.key}' needs 'steps'.",
     };
 
     return Flow(
       entry.key,
       description: _typed<String>(
-        entry.value['description'],
+        definition['description'],
         'description',
         entry.key,
       ),
-      steps: steps,
-      dependsOn: _dependsOn(entry.value, entry.key),
+      steps: (definition['steps'] as List<dynamic>)
+          .map((step) => FlowStep.parse(entry.key, step))
+          .toList(),
+      dependsOn: _dependsOn(definition, entry.key),
     );
   }
 }
@@ -240,9 +246,18 @@ class Config {
   List<NamedCommand> commands;
   List<Flow> flows;
 
+  /// The commands by the name they are keyed by. Built once: every name in the file is resolved
+  /// through this, when the config is checked and again when it runs.
+  late final Map<String, NamedCommand> _byName = {
+    for (final command in commands) command.name: command,
+  };
+
   /// The org to create when the command line does not name one. Null when no org is marked, which
   /// is a question for whoever asked rather than a guess made here.
   final ScratchOrgDefinition? defaultOrg;
+
+  /// The command called [name], if there is one.
+  NamedCommand? command(String name) => _byName[name];
 
   Config({
     required this.scratchOrgDefinitions,
@@ -265,65 +280,85 @@ class Config {
       throw "Only one org is the default one, and ${defaults.map((org) => "'${org.name}'").join(' and ')} both say they are.";
     }
 
-    final commands = _section(unparsed, 'commands', NamedCommand.parse);
-    final flows = _section(unparsed, 'flows', Flow.parse);
-
-    _checkPrerequisites(commands, flows);
-
-    return Config(
+    final config = Config(
       scratchOrgDefinitions: orgs,
-      commands: commands,
-      flows: flows,
+      commands: _section(unparsed, 'commands', NamedCommand.parse),
+      flows: _section(unparsed, 'flows', Flow.parse),
       defaultOrg: defaults.firstOrNull,
     );
+
+    config._checkNames();
+    return config;
   }
 
-  /// Every prerequisite names a command that exists, and no chain of them comes back round.
+  /// Every name in the file resolves to the thing it names, and no chain of prerequisites comes
+  /// back round to where it started.
   ///
-  /// Checked when the config is read rather than when it runs: a cycle found halfway through a
-  /// deploy has already deployed, and a name that matches nothing is a typo the person writing it
-  /// wants to hear about now.
-  static void _checkPrerequisites(
-    List<NamedCommand> commands,
-    List<Flow> flows,
-  ) {
-    final byName = {for (final command in commands) command.name: command};
-
-    void checkNamed(String owner, List<String> dependsOn) {
+  /// Checked when the config is read rather than when it runs. A flow that discovers halfway
+  /// through that its fourth step names nothing has already run the first three, and the first
+  /// three are a scratch org and a deploy.
+  void _checkNames() {
+    for (final (owner, dependsOn) in [
+      for (final command in commands) (command.name, command.dependsOn),
+      for (final flow in flows) (flow.name, flow.dependsOn),
+    ]) {
       for (final name in dependsOn) {
-        if (!byName.containsKey(name)) {
+        if (!_byName.containsKey(name)) {
           throw "'$owner' depends on '$name', which is not a command.";
         }
       }
     }
 
-    for (final command in commands) {
-      checkNamed(command.name, command.dependsOn);
-    }
+    final orgNames = scratchOrgDefinitions.map((org) => org.name).toSet();
+
     for (final flow in flows) {
-      checkNamed(flow.name, flow.dependsOn);
-    }
-
-    // Depth first, carrying the way in: the chain is what makes a cycle readable, and naming only
-    // the command it came back to leaves the reader to find the rest.
-    final settled = <String>{};
-
-    void walk(List<String> chain) {
-      final command = byName[chain.last]!;
-
-      for (final next in command.dependsOn) {
-        if (chain.contains(next)) {
-          throw "'$next' depends on itself: ${[...chain, next].map((name) => "'$name'").join(' -> ')}.";
-        }
-
-        if (settled.add(next)) {
-          walk([...chain, next]);
+      for (final step in flow.steps) {
+        switch (step) {
+          case RunCommandFlowStep():
+            if (!_byName.containsKey(step.commandName)) {
+              throw "The '${flow.name}' flow runs '${step.commandName}', which is not a command.";
+            }
+          case CreateScratchFlowStep():
+            if (!orgNames.contains(step.orgName)) {
+              throw "The '${flow.name}' flow creates '${step.orgName}', which is not an org.";
+            }
         }
       }
     }
 
+    _checkForCycles();
+  }
+
+  /// Depth first, carrying the way in. The path is what makes a cycle readable - naming only the
+  /// command it came back to leaves the reader to find the rest of it.
+  void _checkForCycles() {
+    final settled = <String>{};
+    final path = <String>[];
+    final onPath = <String>{};
+
+    void walk(NamedCommand command) {
+      path.add(command.name);
+      onPath.add(command.name);
+
+      for (final next in command.dependsOn) {
+        if (onPath.contains(next)) {
+          final cycle = [...path.sublist(path.indexOf(next)), next];
+          throw "'$next' depends on itself: ${cycle.map((name) => "'$name'").join(' -> ')}.";
+        }
+
+        if (settled.add(next)) {
+          walk(_byName[next]!);
+        }
+      }
+
+      path.removeLast();
+      onPath.remove(command.name);
+    }
+
     for (final command in commands) {
-      walk([command.name]);
+      if (settled.add(command.name)) {
+        walk(command);
+      }
     }
   }
 

@@ -76,6 +76,13 @@ commands:
   group('flows', () {
     test('read their steps from the key that names the step type', () {
       final config = parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+
+commands:
+  deploy: sf project deploy start
+
 flows:
   setup:
     description: Create a scratch org and deploy.
@@ -99,6 +106,12 @@ flows:
 
     test('set the created org as the default unless a step says otherwise', () {
       final config = parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+  ci:
+    definitionFile: config/ci.json
+
 flows:
   setup:
     steps:
@@ -115,6 +128,13 @@ flows:
     test('refuse a step that is two kinds of step at once', () {
       expect(
         () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+
+commands:
+  deploy: sf project deploy start
+
 flows:
   setup:
     steps:
