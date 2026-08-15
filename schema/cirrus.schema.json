@@ -9,24 +9,32 @@
     "orgs": {
       "description": "The scratch orgs this project creates, keyed by the name you refer to them by.",
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/org" }
+      "additionalProperties": {
+        "$ref": "#/$defs/org"
+      }
     },
     "commands": {
       "description": "The commands this project runs, keyed by the name `cirrus run` takes.",
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/command" }
+      "additionalProperties": {
+        "$ref": "#/$defs/command"
+      }
     },
     "flows": {
       "description": "Sequences of steps, run in order, stopping at the first step that fails.",
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/flow" }
+      "additionalProperties": {
+        "$ref": "#/$defs/flow"
+      }
     }
   },
   "$defs": {
     "org": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["definitionFile"],
+      "required": [
+        "definitionFile"
+      ],
       "properties": {
         "definitionFile": {
           "description": "Path to the scratch org definition file, relative to the project root.",
@@ -51,28 +59,50 @@
     "command": {
       "description": "The command line to run, or a mapping carrying it. Commands are not run through a shell: `&&`, pipes and $VARIABLES are arguments rather than syntax.",
       "oneOf": [
-        { "type": "string" },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["run"],
           "properties": {
             "run": {
-              "description": "The command line to run.",
+              "description": "The command line to run. A command with only `dependsOn` is a name for its prerequisites, and runs nothing itself.",
               "type": "string"
             },
             "description": {
               "description": "What this command is for, shown in `cirrus run --help`.",
               "type": "string"
+            },
+            "dependsOn": {
+              "description": "Commands that must have run before this one. A prerequisite, not a step: it runs once however many times it is named, and siblings run in the order written.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
-          }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "run"
+              ]
+            },
+            {
+              "required": [
+                "dependsOn"
+              ]
+            }
+          ]
         }
       ]
     },
     "flow": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["steps"],
+      "required": [
+        "steps"
+      ],
       "properties": {
         "description": {
           "description": "What this flow is for, shown in `cirrus flow --help`.",
@@ -81,7 +111,16 @@
         "steps": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/step" }
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        },
+        "dependsOn": {
+          "description": "Commands that must have run before the flow's first step, once each.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -91,7 +130,9 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "required": ["createScratch"],
+          "required": [
+            "createScratch"
+          ],
           "properties": {
             "createScratch": {
               "description": "The name of an org defined under `orgs`.",
@@ -105,7 +146,9 @@
         },
         {
           "additionalProperties": false,
-          "required": ["command"],
+          "required": [
+            "command"
+          ],
           "properties": {
             "command": {
               "description": "The name of a command defined under `commands`.",
