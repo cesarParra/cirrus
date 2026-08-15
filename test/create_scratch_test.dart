@@ -169,7 +169,7 @@ void main() {
 
     test(
       'does not provide duration if not present in the config file',
-          () async {
+      () async {
         Map<String, dynamic> parser() {
           return TomlDocument.parse("""
           [[orgs]]

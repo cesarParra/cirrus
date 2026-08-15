@@ -27,7 +27,7 @@ class TestRunner implements CliRunner {
   final String simulatedOutput;
 
   TestRunner({String? simulatedOutput})
-      : simulatedOutput = simulatedOutput ?? 'Simulated output';
+    : simulatedOutput = simulatedOutput ?? 'Simulated output';
 
   @override
   Future<void> run(String command) async {
