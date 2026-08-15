@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 
 import 'config.dart';
 import 'service_locator.dart';
+import 'utils.dart';
 
 /// One run of cirrus, and the commands it has already carried out.
 ///
@@ -19,7 +20,13 @@ class Execution {
   Execution(this.config);
 
   /// Runs [name], whatever has run before it. Its prerequisites still run at most once.
-  Future<Either<String, void>> step(String name) async {
+  ///
+  /// [arguments] are appended to this command's command line and to nothing else: they were asked
+  /// for by name, and a prerequisite dragged in behind it did not ask for them.
+  Future<Either<String, void>> step(
+    String name, {
+    List<String> arguments = const [],
+  }) async {
     final command = config.command(name);
 
     // Every name in the config is checked when it is read, so this is reachable only from a
@@ -28,7 +35,7 @@ class Execution {
       return Left("Command $name not found");
     }
 
-    return await _execute(command);
+    return await _execute(command, arguments);
   }
 
   /// Runs everything in [names] that this run has not already, in the order given, stopping at the
@@ -48,7 +55,10 @@ class Execution {
     return Right(null);
   }
 
-  Future<Either<String, void>> _execute(NamedCommand command) async {
+  Future<Either<String, void>> _execute(
+    NamedCommand command,
+    List<String> arguments,
+  ) async {
     final prerequisitesRun = await prerequisites(command.dependsOn);
     if (prerequisitesRun.isLeft()) {
       return prerequisitesRun;
@@ -57,7 +67,9 @@ class Execution {
     final commandLine = command.run;
     if (commandLine != null) {
       try {
-        await getIt.get<CliRunner>().run(commandLine);
+        await getIt.get<CliRunner>().run(
+          [commandLine, ...arguments.map(asOneArgument)].join(' '),
+        );
       } catch (error) {
         return Left('$error');
       }

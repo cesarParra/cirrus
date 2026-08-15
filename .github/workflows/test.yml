@@ -118,6 +118,13 @@ jobs:
           grep -q building last.log
           grep -q deploying last.log
 
+          # Arguments after `--` reach the command.
+          exits_zero "$binary" run hello -- --and-this
+          grep -q -- '--and-this' last.log
+
+          # A reader that stops reading is not an error: `| head` closes the pipe mid-write.
+          "$binary" run hello | head -1 > /dev/null
+
           # A flow's prerequisite runs, and its repeated step repeats.
           exits_zero "$binary" flow demo
           test "$(grep -c building last.log)" -eq 1
