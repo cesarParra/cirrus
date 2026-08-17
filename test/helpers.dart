@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:chalkdart/chalk.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
+import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
 
 /// The recording doubles a command test runs against: a logger that keeps what it was told instead
@@ -141,4 +144,37 @@ extension CliExtensions on String {
 
     return args;
   }
+}
+
+/// An `sfdx-project.json` a package test can read and write without a disk. It starts out holding
+/// one package, since that is what every test about a version number needs.
+class FakeFileSystem implements FileSystem {
+  final String path;
+  final bool _exists;
+  String contents = SfdxProjectJson(
+    packageDirectories: [
+      PackageDirectory(
+        package: 'SamplePackage',
+        versionNumber: '2.30.0.NEXT',
+        extra: {'path': 'packages/SamplePackage'},
+      ),
+    ],
+  ).toJson().encoded();
+
+  FakeFileSystem(this.path, this._exists);
+
+  @override
+  bool exists() => _exists;
+
+  @override
+  String readAsStringSync() => contents;
+
+  @override
+  void write(String content) {
+    contents = content;
+  }
+}
+
+extension JsonEncoding on Map<String, dynamic> {
+  String encoded() => jsonEncode(this);
 }

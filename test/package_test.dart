@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:cirrus/src/commands/package/get_latest.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
@@ -90,8 +88,7 @@ void main() {
       final before = fakeFileSystem.contents;
 
       await run(
-        'package create --package SamplePackage --version-type=none'
-            .toArguments(),
+        'package create --package SamplePackage --no-bump'.toArguments(),
         configFileName: "",
       );
 
@@ -214,7 +211,7 @@ void main() {
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
-        'package create --package SamplePackage --version-type=minor --name="New Name"'
+        'package create --package SamplePackage --version-type=minor --version-name="New Name"'
             .toArguments(),
         configFileName: "",
       );
@@ -645,39 +642,4 @@ void main() {
       });
     });
   });
-}
-
-class FakeFileSystem implements FileSystem {
-  final String path;
-  final bool _exists;
-  String contents = SfdxProjectJson(
-    packageDirectories: [
-      PackageDirectory(
-        package: 'SamplePackage',
-        versionNumber: '2.30.0.NEXT',
-        extra: {'path': 'packages/SamplePackage'},
-      ),
-    ],
-  ).toJson().encoded();
-
-  FakeFileSystem(this.path, this._exists);
-
-  @override
-  bool exists() => _exists;
-
-  @override
-  String readAsStringSync() {
-    return contents;
-  }
-
-  @override
-  void write(String content) {
-    contents = content;
-  }
-}
-
-extension on Map<String, dynamic> {
-  String encoded() {
-    return jsonEncode(this);
-  }
 }

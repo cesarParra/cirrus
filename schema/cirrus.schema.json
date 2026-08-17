@@ -9,6 +9,10 @@
     "orgs": {
       "description": "The scratch orgs this project creates, keyed by the name you refer to them by.",
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "description": "A name is letters, digits, '-' and '_', starting with a letter or a digit, because it is typed on the command line."
+      },
       "additionalProperties": {
         "$ref": "#/$defs/org"
       }
@@ -16,6 +20,10 @@
     "commands": {
       "description": "The commands this project runs, keyed by the name `cirrus run` takes.",
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "description": "A name is letters, digits, '-' and '_', starting with a letter or a digit, because it is typed on the command line."
+      },
       "additionalProperties": {
         "$ref": "#/$defs/command"
       }
@@ -23,6 +31,10 @@
     "flows": {
       "description": "Sequences of steps, run in order, stopping at the first step that fails.",
       "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "description": "A name is letters, digits, '-' and '_', starting with a letter or a digit, because it is typed on the command line."
+      },
       "additionalProperties": {
         "$ref": "#/$defs/flow"
       }
@@ -51,7 +63,7 @@
           "type": "string"
         },
         "default": {
-          "description": "Create this org when `cirrus run create_scratch` is given no --name. At most one org may say so.",
+          "description": "Create this org when `cirrus org create` is given no org to create. At most one org may say so.",
           "type": "boolean"
         },
         "namespace": {

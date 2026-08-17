@@ -4,18 +4,19 @@ import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../execution.dart';
 import '../../service_locator.dart';
-import 'create_scratch.dart';
 
+/// Every subcommand here comes out of the config file, and nothing else ever does. A built-in
+/// sharing this namespace is a name a config file can collide with, and `args` refuses a duplicate
+/// while the runner is being built - before any command is dispatched, so the collision takes
+/// `--version` and `init` down with it.
 class RunCommand extends Command implements ReadsConfig {
   @override
   final name = 'run';
 
   @override
-  String get description => 'Runs a standalone command';
+  String get description => 'Runs a command defined in the config file.';
 
   RunCommand() {
-    addSubcommand(CreateScratchCommand());
-
     // A config that did not load is reported before any command is dispatched, so there are simply
     // no configured commands to offer here.
     final config = loadedConfig();
@@ -26,42 +27,6 @@ class RunCommand extends Command implements ReadsConfig {
     for (final namedCommand in config.commands) {
       addSubcommand(RunNamedCommand(config, namedCommand));
     }
-  }
-}
-
-// Default run commands
-
-class CreateScratchCommand extends Command {
-  @override
-  final name = 'create_scratch';
-
-  @override
-  String get description => 'Creates a scratch org.';
-
-  CreateScratchCommand() {
-    argParser
-      ..addOption(
-        'name',
-        abbr: 'n',
-        help:
-            'The name of the scratch org definition to create. Defaults to the org marked '
-            "'default: true' in the configuration file.",
-      )
-      ..addFlag(
-        'set-default',
-        abbr: 'd',
-        defaultsTo: true,
-        negatable: true,
-        help: 'Set the created scratch org as the default org.',
-      );
-  }
-
-  @override
-  Future<Either<String, String>> run() async {
-    return await runCreateScratch(
-      argResults?.option('name'),
-      setDefault: argResults?.flag('set-default') ?? true,
-    );
   }
 }
 
