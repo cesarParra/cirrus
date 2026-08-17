@@ -3,12 +3,13 @@ import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../service_locator.dart';
+import '../../failure.dart';
 
-Future<Either<String, String>> runCreateScratch(
+Future<Either<Failure, String>> runCreateScratch(
   String? orgDefinitionName, {
   required bool setDefault,
 }) async {
-  final config = getIt.get<Either<String, Config>>();
+  final config = getIt.get<Either<Failure, Config>>();
 
   switch (config) {
     case Left(:final value):
@@ -23,8 +24,10 @@ Future<Either<String, String>> runCreateScratch(
 
         if (fallback == null) {
           return Left(
-            "No org to create. Name one - cirrus org create <org> - or name one 'defaultOrg' in "
-            "$configFileName.\r\n${_available(orgs)}",
+            Failure(
+              "No org to create. Name one - cirrus org create <org> - or name one 'defaultOrg' in "
+              "$configFileName.\r\n${_available(orgs)}",
+            ),
           );
         }
 
@@ -38,18 +41,27 @@ Future<Either<String, String>> runCreateScratch(
       return switch (named) {
         Some(:final value) => await _create(value, setDefault: setDefault),
         None() => Left(
-          "The org '$orgDefinitionName' is not defined in the $configFileName "
-          "file.\r\n${_available(orgs)}",
+          Failure(
+            "The org '$orgDefinitionName' is not defined in the $configFileName "
+            "file.\r\n${_available(orgs)}",
+          ),
         ),
       };
   }
 }
 
-Future<Either<String, String>> _create(
+Future<Either<Failure, String>> _create(
   ScratchOrgDefinition orgDefinition, {
   required bool setDefault,
 }) async {
-  await getIt.get<CliRunner>().run(_build(orgDefinition, setDefault));
+  try {
+    await getIt.get<CliRunner>().run(_build(orgDefinition, setDefault));
+  } on Failure catch (failure) {
+    // The signature promises a value, so the failure `CliRunner` throws is returned rather than
+    // left to escape past every caller that was told it would not.
+    return Left(failure);
+  }
+
   return Right('Scratch org created successfully.');
 }
 

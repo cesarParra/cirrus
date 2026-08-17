@@ -1,9 +1,7 @@
 import 'package:cirrus/src/commands/package/get_latest.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 
-import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/commands/runner.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'helpers.dart';
@@ -22,9 +20,7 @@ void main() {
 
   group('package create', () {
     test('Errors when there is no sfdx-project.json file', () async {
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => FakeFileSystem(path, false),
@@ -42,9 +38,7 @@ void main() {
     test('Increments the major version', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -74,9 +68,7 @@ void main() {
       // pipeline that cuts a version per night must not rewrite the file it checked out.
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -171,9 +163,7 @@ void main() {
     test('Increments the minor version', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -201,9 +191,7 @@ void main() {
     test('Increments the patch version', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -231,9 +219,7 @@ void main() {
     test('Keeps any extra fields in the package directory', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -261,9 +247,7 @@ void main() {
     test('Updates the name', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -286,9 +270,7 @@ void main() {
     test('Forwards the code coverage to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -311,9 +293,7 @@ void main() {
     test('Forwards the definition file to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -336,9 +316,7 @@ void main() {
     test('Forwards the installation key to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -366,9 +344,7 @@ void main() {
           true,
         );
 
-        getIt.registerSingleton<Either<String, Config>>(
-          Left('No config available'),
-        );
+        registerConfigFailure('No config available');
 
         getIt.registerFactoryParam<FileSystem, String, void>(
           (String path, _) => fakeFileSystem,
@@ -392,9 +368,7 @@ void main() {
     test('Forwards the target dev hub to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -417,9 +391,7 @@ void main() {
     test('Forwards the wait to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -442,9 +414,7 @@ void main() {
     test('Forwards the async validation to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -467,9 +437,7 @@ void main() {
     test('Forwards the skip validation to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -492,9 +460,7 @@ void main() {
     test('Forwards the verbose flag to the executed command', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -517,9 +483,7 @@ void main() {
     test('Executes the promote command when --promote is used', () async {
       FakeFileSystem fakeFileSystem = FakeFileSystem('sfdx-project.json', true);
 
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
 
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => fakeFileSystem,
@@ -553,9 +517,7 @@ void main() {
   group('package get_latest', () {
     group('package alias', () {
       test('errors when there is no sfdx-project.json file', () async {
-        getIt.registerSingleton<Either<String, Config>>(
-          Left('No config available'),
-        );
+        registerConfigFailure('No config available');
 
         getIt.registerFactoryParam<FileSystem, String, void>(
           (String path, _) => FakeFileSystem(path, false),
@@ -583,9 +545,7 @@ void main() {
             true,
           );
 
-          getIt.registerSingleton<Either<String, Config>>(
-            Left('No config available'),
-          );
+          registerConfigFailure('No config available');
 
           getIt.registerFactoryParam<FileSystem, String, void>(
             (String path, _) => fakeFileSystem,
@@ -622,9 +582,7 @@ void main() {
             packageAliases: {'AnotherPackage': '04t1t0000000xyzAAA'},
           ).toJson().encoded();
 
-          getIt.registerSingleton<Either<String, Config>>(
-            Left('No config available'),
-          );
+          registerConfigFailure('No config available');
 
           getIt.registerFactoryParam<FileSystem, String, void>(
             (String path, _) => fakeFileSystem,
@@ -659,9 +617,7 @@ void main() {
           packageAliases: {'SamplePackage': '04t1t0000000abcAAA'},
         ).toJson().encoded();
 
-        getIt.registerSingleton<Either<String, Config>>(
-          Left('No config available'),
-        );
+        registerConfigFailure('No config available');
 
         getIt.registerFactoryParam<FileSystem, String, void>(
           (String path, _) => fakeFileSystem,

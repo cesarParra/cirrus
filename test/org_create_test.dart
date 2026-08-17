@@ -1,7 +1,6 @@
 import 'package:cirrus/src/commands/runner.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
@@ -27,9 +26,7 @@ orgs:
 
   group('org create', () {
     test('errors when any error occurs parsing the config file', () async {
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('yaml parsing error'),
-      );
+      registerConfigFailure('yaml parsing error');
 
       await run('org create test'.toArguments(), configFileName: "");
 
