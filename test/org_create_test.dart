@@ -217,12 +217,12 @@ orgs:
     group('when the command names no org', () {
       test('creates the one the config marks as the default', () async {
         registerConfig("""
+defaultOrg: ci
 orgs:
   dev:
     definitionFile: config/dev.json
   ci:
     definitionFile: config/ci.json
-    default: true
 """);
 
         await run('org create'.toArguments(), configFileName: "");
@@ -237,23 +237,7 @@ orgs:
         await run('org create'.toArguments(), configFileName: "");
 
         expect(logger.errors, hasLength(1));
-        expect(logger.errors.first, contains("default: true"));
-        expect(logger.errors.first, contains('default'));
-      });
-
-      test('refuses a config where two orgs are the default', () async {
-        expect(
-          () => registerConfig("""
-orgs:
-  dev:
-    definitionFile: config/dev.json
-    default: true
-  ci:
-    definitionFile: config/ci.json
-    default: true
-"""),
-          throwsA(allOf(contains('dev'), contains('ci'))),
-        );
+        expect(logger.errors.first, contains('defaultOrg'));
       });
     });
   });

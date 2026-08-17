@@ -31,6 +31,25 @@ dynamic _plain(dynamic node) => switch (node) {
   _ => node,
 };
 
+/// Every key in [mapping] is one cirrus reads, or the file is wrong about what it is describing.
+///
+/// A key cirrus does not read is a key that does nothing, and doing nothing quietly is what a
+/// config file cannot afford: `durationDays` reads exactly like `duration` to the person who wrote
+/// it, and the org silently gets the default instead. The message names the keys that are taken,
+/// which is the answer to every misspelling without guessing at which one was meant.
+void _onlyKeysCirrusReads(
+  Map<String, dynamic> mapping,
+  String owner,
+  Set<String> taken,
+) {
+  for (final key in mapping.keys) {
+    if (!taken.contains(key)) {
+      throw "'$key' is not something $owner takes. It takes "
+          "${taken.map((name) => "'$name'").join(', ')}.";
+    }
+  }
+}
+
 class ScratchOrgDefinition {
   final String name;
   final String definitionFile;
@@ -39,9 +58,6 @@ class ScratchOrgDefinition {
   /// What the org is called in the CLI once it exists, which is the name it is keyed by unless the
   /// definition says otherwise.
   final String alias;
-
-  /// The org `cirrus org create` creates when it is not told which one.
-  final bool isDefault;
 
   /// Whether the org carries the project's package namespace. A subscriber's org does not, and an
   /// org that stands in for one has to say so.
@@ -55,20 +71,36 @@ class ScratchOrgDefinition {
     this.definitionFile, {
     this.duration,
     String? alias,
-    this.isDefault = false,
     this.namespace = true,
     this.wait,
   }) : alias = alias ?? name;
 
+  static const _keys = {
+    'definitionFile',
+    'duration',
+    'alias',
+    'namespace',
+    'wait',
+  };
+
   factory ScratchOrgDefinition.parse(MapEntry<String, dynamic> entry) {
+    if (entry.value case Map<String, dynamic> mapping) {
+      // Named before the general check, which would report it as a key that does not exist and
+      // leave the reader to find where it went.
+      if (mapping.containsKey('default')) {
+        throw "The org '${entry.key}' says 'default'. Which org to create is now one root "
+            "'defaultOrg: ${entry.key}', so that two orgs cannot both claim it.";
+      }
+
+      _onlyKeysCirrusReads(mapping, "the org '${entry.key}'", _keys);
+    }
+
     return switch (entry.value) {
       {'definitionFile': String definitionFile} => ScratchOrgDefinition(
         entry.key,
         definitionFile,
         duration: _typed<int>(entry.value['duration'], 'duration', entry.key),
         alias: _typed<String>(entry.value['alias'], 'alias', entry.key),
-        isDefault:
-            _typed<bool>(entry.value['default'], 'default', entry.key) ?? false,
         namespace:
             _typed<bool>(entry.value['namespace'], 'namespace', entry.key) ??
             true,
@@ -76,6 +108,23 @@ class ScratchOrgDefinition {
       ),
       _ => throw "The org '${entry.key}' needs a 'definitionFile'.",
     };
+  }
+}
+
+/// `${{ ... }}` is reserved for interpolation cirrus does not do yet - piping one step's output
+/// into the next is the feature that will need it.
+///
+/// Refused now rather than passed through, because the README promises a command line reaches the
+/// program as written. Once a config in the wild relies on that promise for a line containing
+/// `${{`, giving the sigil a meaning silently changes what that command runs. Reserving it costs
+/// one error today and buys the whole feature later.
+final _reservedSigil = RegExp(r'\$\{\{');
+
+void _noReservedSigil(String commandLine, String owner) {
+  if (_reservedSigil.hasMatch(commandLine)) {
+    throw "The command line of '$owner' contains '\${{', which cirrus reserves for a future "
+        "release and does not interpret yet. A `\$VARIABLE` or `\${BRACED}` reaches the program "
+        "as written and is unaffected.";
   }
 }
 
@@ -109,7 +158,8 @@ class NamedCommand {
 
   final String? description;
 
-  /// The commands that must have run before this one, in the order written.
+  /// The commands that must have run before this one. Each completes before this command
+  /// starts; nothing here promises two prerequisites of one command run in sequence.
   final List<String> dependsOn;
 
   NamedCommand(
@@ -131,8 +181,18 @@ class NamedCommand {
             "one is a ${entry.value.runtimeType}.",
     };
 
+    _onlyKeysCirrusReads(definition, "the command '${entry.key}'", {
+      'run',
+      'description',
+      'dependsOn',
+    });
+
     final run = _typed<String>(definition['run'], 'run', entry.key);
     final dependsOn = _dependsOn(definition, entry.key);
+
+    if (run != null) {
+      _noReservedSigil(run, entry.key);
+    }
 
     if (run == null && dependsOn.isEmpty) {
       throw "The command '${entry.key}' has no 'run' and no 'dependsOn', so there is nothing for "
@@ -185,11 +245,25 @@ sealed class FlowStep {
     }
 
     return switch (unparsed) {
-      {'createScratch': String orgName} => CreateScratchFlowStep(
-        orgName,
-        _typed<bool>(unparsed['setDefault'], 'setDefault', flowName) ?? true,
-      ),
-      {'command': String commandName} => RunCommandFlowStep(commandName),
+      {'createScratch': String orgName} => () {
+        _onlyKeysCirrusReads(
+          unparsed as Map<String, dynamic>,
+          "a 'createScratch' step of the '$flowName' flow",
+          {'createScratch', 'setDefault'},
+        );
+        return CreateScratchFlowStep(
+          orgName,
+          _typed<bool>(unparsed['setDefault'], 'setDefault', flowName) ?? true,
+        );
+      }(),
+      {'command': String commandName} => () {
+        _onlyKeysCirrusReads(
+          unparsed as Map<String, dynamic>,
+          "a 'command' step of the '$flowName' flow",
+          {'command'},
+        );
+        return RunCommandFlowStep(commandName);
+      }(),
       Map<String, dynamic> step =>
         throw "'${step.keys.join(', ')}' in the '$flowName' flow is not a kind of step cirrus "
             "knows. A step is 'createScratch' or 'command'.",
@@ -231,7 +305,8 @@ class Flow {
   final String? description;
   final List<FlowStep> steps;
 
-  /// The commands that must have run before the first step, in the order written.
+  /// The commands that must have run before the first step. Each completes before the first
+  /// step starts; nothing here promises two of them run in sequence.
   final List<String> dependsOn;
 
   Flow(
@@ -247,6 +322,12 @@ class Flow {
         entry.value as Map<String, dynamic>,
       _ => throw "The flow '${entry.key}' needs 'steps'.",
     };
+
+    _onlyKeysCirrusReads(definition, "the flow '${entry.key}'", {
+      'description',
+      'steps',
+      'dependsOn',
+    });
 
     return Flow(
       entry.key,
@@ -293,20 +374,32 @@ class Config {
       Config.parse(asPlainMap(loadYaml(source)));
 
   factory Config.parse(Map<String, dynamic> unparsed) {
+    _onlyKeysCirrusReads(unparsed, 'the $configFileName file', {
+      'defaultOrg',
+      'orgs',
+      'commands',
+      'flows',
+    });
+
     final orgs = _section(unparsed, 'orgs', ScratchOrgDefinition.parse);
 
-    // Found once, so that the uniqueness this rejects and the org the CLI later creates come from
-    // the same expression rather than agreeing by coincidence.
-    final defaults = orgs.where((org) => org.isDefault).toList();
-    if (defaults.length > 1) {
-      throw "Only one org is the default one, and ${defaults.map((org) => "'${org.name}'").join(' and ')} both say they are.";
+    // One root key, so "at most one org is the default" is a shape the file cannot violate rather
+    // than a rule this has to check.
+    final named = _typed<String>(
+      unparsed['defaultOrg'],
+      'defaultOrg',
+      configFileName,
+    );
+    final chosen = orgs.where((org) => org.name == named).firstOrNull;
+    if (named != null && chosen == null) {
+      throw "'defaultOrg' names '$named', which is not an org.";
     }
 
     final config = Config(
       scratchOrgDefinitions: orgs,
       commands: _section(unparsed, 'commands', NamedCommand.parse),
       flows: _section(unparsed, 'flows', Flow.parse),
-      defaultOrg: defaults.firstOrNull,
+      defaultOrg: chosen,
     );
 
     config._checkNames();

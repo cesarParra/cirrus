@@ -273,4 +273,164 @@ commands:
       expect(propertyNames, reference, reason: '$section keys are typed too');
     }
   });
+
+  group('a key cirrus does not know', () {
+    test('is refused at the root, rather than dropped', () {
+      expect(
+        () => parse('orgz:\n  dev:\n    definitionFile: config/dev.json\n'),
+        throwsA(contains('orgz')),
+      );
+    });
+
+    test('is refused on an org, naming the org it is on', () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+    durationDays: 30
+"""),
+        throwsA(allOf(contains('durationDays'), contains('dev'))),
+      );
+    });
+
+    test('is refused on a command', () {
+      expect(
+        () => parse("""
+commands:
+  deploy:
+    run: sf project deploy start
+    dependsON: [build]
+"""),
+        throwsA(allOf(contains('dependsON'), contains('deploy'))),
+      );
+    });
+
+    test('is refused on a flow', () {
+      expect(
+        () => parse("""
+commands:
+  deploy: sf project deploy start
+flows:
+  setup:
+    steps:
+      - command: deploy
+    describe: what it does
+"""),
+        throwsA(allOf(contains('describe'), contains('setup'))),
+      );
+    });
+
+    test('is refused on a flow step', () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+flows:
+  setup:
+    steps:
+      - createScratch: dev
+        setDefualt: true
+"""),
+        throwsA(contains('setDefualt')),
+      );
+    });
+
+    test('is answered with the keys that are taken', () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+    duraton: 30
+"""),
+        throwsA(contains("duration")),
+      );
+    });
+  });
+
+  group('a sigil cirrus has reserved', () {
+    test('is refused in a command line, rather than passed through', () {
+      expect(
+        () => parse(r"""
+commands:
+  deploy: sf project deploy start --target-org ${{ steps.org.alias }}
+"""),
+        throwsA(allOf(contains(r'${{'), contains('deploy'))),
+      );
+    });
+
+    test('is refused wherever in the line it appears', () {
+      expect(
+        () => parse(r"""
+commands:
+  greet:
+    run: echo ${{ nothing }} yet
+"""),
+        throwsA(contains('greet')),
+      );
+    });
+
+    test('leaves a shell-looking line that is not the sigil alone', () {
+      // `$VARIABLES` and `${BRACED}` reach the program as arguments, which is documented and has
+      // to keep working - only the doubled brace is reserved.
+      final config = parse(r"""
+commands:
+  greet: echo $HOME ${USER} $(date)
+""");
+
+      expect(config.command('greet')!.run, contains(r'$HOME'));
+      expect(config.command('greet')!.run, contains(r'${USER}'));
+    });
+  });
+
+  group('the org created when none is named', () {
+    test('is the one the root names', () {
+      final config = parse("""
+defaultOrg: ci
+orgs:
+  dev:
+    definitionFile: config/dev.json
+  ci:
+    definitionFile: config/ci.json
+""");
+
+      expect(config.defaultOrg?.name, 'ci');
+    });
+
+    test('is nothing when the root names nothing', () {
+      final config = parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+""");
+
+      expect(config.defaultOrg, isNull);
+    });
+
+    test('is refused when it names no org', () {
+      expect(
+        () => parse("""
+defaultOrg: staging
+orgs:
+  dev:
+    definitionFile: config/dev.json
+"""),
+        throwsA(allOf(contains('staging'), contains('defaultOrg'))),
+      );
+    });
+
+    test("says where 'default' went when an org still carries it", () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+    default: true
+"""),
+        throwsA(allOf(contains('default'), contains('defaultOrg'))),
+      );
+    });
+  });
 }
