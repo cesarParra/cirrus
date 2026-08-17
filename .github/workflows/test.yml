@@ -24,7 +24,10 @@ jobs:
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          # Pinned, not `stable`: `dart format` changes between releases, so a floating SDK fails
+          # the formatting check on a branch nobody touched, and passes on a machine that happens
+          # to match. Raise it deliberately.
+          sdk: 3.13.0
 
       - name: Install Dart dependencies
         run: dart pub get
