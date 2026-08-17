@@ -1,0 +1,83 @@
+name: Publish schema
+
+# The URL `cirrus init` writes into a config file is one cirrus can never edit again, so it points
+# at a host this project controls rather than raw.githubusercontent.com.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - schema/**
+      - .github/workflows/schema.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lay the schema out under its major version
+        run: |
+          set -euo pipefail
+
+          # The schema says which major it is, so the path and the document cannot disagree.
+          major=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["properties"]["schemaVersion"]["const"])' schema/cirrus.schema.json)
+
+          mkdir -p "site/schema/v$major"
+          cp schema/cirrus.schema.json "site/schema/v$major/cirrus.schema.json"
+
+          # A Pages deploy replaces the whole site, so whatever is not laid out here stops being
+          # served. v1 is the only major there is; introducing a v2 means also writing the v1
+          # document out here, or every config already pointing at v1 loses its schema.
+          find site -type f | sort
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # The `$id` in the document is the URL `cirrus init` writes into other people's config files
+      # and can never edit again. That it names the place the document is actually served from is
+      # the one promise here nothing else checks: the host and prefix are a literal in
+      # `lib/src/config.dart`, and a repository rename or a Pages setting would part them silently.
+      - name: Fetch the schema from the URL it claims
+        run: |
+          set -euo pipefail
+
+          # `$id` is a JSON key inside a Python program, not a shell variable, so the quoting is
+          # deliberate.
+          # shellcheck disable=SC2016
+          read_id() {
+            python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["$id"])' "$1"
+          }
+
+          claimed=$(read_id schema/cirrus.schema.json)
+          echo "Fetching $claimed"
+
+          # Pages can take a moment to serve a fresh deploy.
+          for attempt in 1 2 3 4 5; do
+            if curl -fsSL --retry 2 -o served.json "$claimed"; then break; fi
+            [ "$attempt" = 5 ] && { echo "$claimed did not serve the schema." >&2; exit 1; }
+            sleep 10
+          done
+
+          served=$(read_id served.json)
+          if [ "$served" != "$claimed" ]; then
+            echo "Served $served from $claimed - the URL and the document disagree." >&2
+            exit 1
+          fi
