@@ -1,11 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json",
+  "$id": "https://cesarparra.github.io/cirrus/schema/v1/cirrus.schema.json",
   "title": "cirrus.yaml",
   "description": "Salesforce development automation: the orgs a project creates, the commands it runs, and the flows that sequence them.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "schemaVersion": {
+      "description": "The shape of this file. Cirrus refuses a file that declares a version newer than it reads, rather than failing on the first key it does not know.",
+      "const": 1
+    },
     "defaultOrg": {
       "description": "The org `cirrus org create` creates when it is not told which one. Names a key under `orgs`.",
       "$ref": "#/$defs/name"

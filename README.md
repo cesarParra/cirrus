@@ -219,7 +219,7 @@ command's own status on to whatever reads it next.
 runs, and the **flows** that sequence them. Each is a mapping keyed by the name you refer to it by.
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json
+# yaml-language-server: $schema=https://cesarparra.github.io/cirrus/schema/v1/cirrus.schema.json
 
 defaultOrg: dev
 
@@ -247,6 +247,17 @@ flows:
 That first line is worth keeping. It points editors at cirrus's JSON Schema, which gives completion
 and validation as you type - VS Code needs the YAML extension, JetBrains IDEs read it as is.
 `cirrus init` writes it for you.
+
+The URL carries the schema's major version. A `v1` config keeps being validated against `v1` once a
+`v2` exists, and `schemaVersion` at the root lets cirrus itself - not only your editor - say that a
+file needs a newer cirrus:
+
+```yaml
+schemaVersion: 1
+```
+
+Absent, cirrus reads the file as the version it knows. Present and higher, it says which cirrus the
+file wants instead of failing on the first key this one does not recognise.
 
 ### Moving from cirrus.toml
 

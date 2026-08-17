@@ -1,3 +1,16 @@
+## 0.10.0
+
+- **The schema moved to a host this project controls**, at
+  `https://cesarparra.github.io/cirrus/schema/v1/cirrus.schema.json`. It was served from
+  `raw.githubusercontent.com`, which is rate limited, serves `text/plain`, and put an account name
+  into every repository that ran `cirrus init` - a line cirrus writes once and can never edit
+  again. Existing configs keep working; the old URL still resolves.
+- **The URL carries the schema major.** A config written against `v1` keeps being validated against
+  `v1` once a `v2` exists, rather than against whatever landed since.
+- **`schemaVersion` at the root**, so cirrus itself - not only an editor - can say a file needs a
+  newer cirrus, instead of failing on the first key this version does not know. Absent means the
+  version cirrus reads.
+
 ## 0.9.0
 
 - The cause of a config that did not load is reported however the arguments reach the command. It

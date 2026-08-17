@@ -3,6 +3,21 @@ import 'package:yaml/yaml.dart';
 /// The file cirrus reads. Named once, so that every message about it agrees.
 const configFileName = 'cirrus.yaml';
 
+/// The shape of the config file this cirrus reads. Bumped when a change to the file is one an
+/// older cirrus could not make sense of - not for every added key, which an older binary now
+/// refuses by name anyway.
+const schemaVersion = 1;
+
+/// Where the schema is published, and the line `cirrus init` writes into a config file.
+///
+/// Served from a host this project controls rather than raw.githubusercontent.com, which is rate
+/// limited, serves `text/plain`, and puts an account name into every repository that runs `cirrus
+/// init`. Versioned by schema major, so a config written today keeps being validated against the
+/// rules it was written for once a v2 exists. A test pins this against the schema's own `$id`,
+/// since cirrus can never edit the copy it has already written into someone else's file.
+const schemaUrl =
+    'https://cesarparra.github.io/cirrus/schema/v$schemaVersion/cirrus.schema.json';
+
 /// A command whose subcommands are read out of the config file, and which therefore has nothing to
 /// offer when that file did not load.
 abstract interface class ReadsConfig {}
@@ -30,6 +45,34 @@ dynamic _plain(dynamic node) => switch (node) {
   YamlList list => list.map(_plain).toList(),
   _ => node,
 };
+
+/// A file that says it needs a cirrus newer than this one is told so, rather than being read as far
+/// as the first key this version does not know.
+///
+/// Checked before the keys are, because "'steps2' is not something a flow takes" is the wrong
+/// answer to "you are running an old cirrus".
+void _refuseANewerFile(Map<String, dynamic> unparsed) {
+  final declared = _typed<int>(
+    unparsed['schemaVersion'],
+    'schemaVersion',
+    configFileName,
+  );
+
+  if (declared == null || declared == schemaVersion) {
+    return;
+  }
+
+  if (declared > schemaVersion) {
+    throw "This $configFileName says 'schemaVersion: $declared' and this cirrus reads "
+        "$schemaVersion. Install a newer cirrus.";
+  }
+
+  // Below the one cirrus reads is not an older file cirrus can be lenient about - there has only
+  // ever been one, and the schema says so with `const`. Accepting here what the schema rejects is
+  // the two drifting apart.
+  throw "This $configFileName says 'schemaVersion: $declared', which is not a shape cirrus has "
+      "ever had. This cirrus reads $schemaVersion.";
+}
 
 /// Every key in [mapping] is one cirrus reads, or the file is wrong about what it is describing.
 ///
@@ -396,9 +439,17 @@ class Config {
       Config.parse(asPlainMap(loadYaml(source)));
 
   /// Stated here and in the schema's root `properties`; a test holds the two together.
-  static const rootKeys = {'defaultOrg', 'orgs', 'commands', 'flows'};
+  static const rootKeys = {
+    'schemaVersion',
+    'defaultOrg',
+    'orgs',
+    'commands',
+    'flows',
+  };
 
   factory Config.parse(Map<String, dynamic> unparsed) {
+    _refuseANewerFile(unparsed);
+
     _onlyKeysCirrusReads(unparsed, 'the $configFileName file', rootKeys);
 
     final orgs = _section(unparsed, 'orgs', ScratchOrgDefinition.parse);
