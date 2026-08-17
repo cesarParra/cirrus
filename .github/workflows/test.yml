@@ -83,9 +83,9 @@ jobs:
           test -f cirrus.yaml
           exits_non_zero "$binary" init
           # Reads back what init wrote: an empty config is a config with no commands in it, and
-          # reporting the missing command rather than a parse failure is how that shows.
+          # saying there are none rather than reporting a parse failure is how that shows.
           exits_non_zero "$binary" run anything
-          grep -q 'Could not find a subcommand' last.log
+          grep -q 'No commands are defined' last.log
 
           cat > cirrus.yaml <<'CONFIG'
           commands:
@@ -144,10 +144,35 @@ jobs:
           test "$(grep -c building last.log)" -eq 1
           test "$(grep -c deploying last.log)" -eq 2
 
+          # A flow is a sequence, so there is no one step for an argument to belong to.
+          exits_non_zero "$binary" flow demo -- --project=chromium
+
           # A failure has to reach the shell, not just the person reading the output.
           exits_non_zero "$binary" run boom
           exits_non_zero "$binary" flow breaks
           exits_non_zero "$binary" run no-such-command
+
+          # `run` holds only what the config names, so a command may take any name - including one
+          # a built-in used to have. This is the whole CLI failing to build if it ever regresses,
+          # which is why it is checked against the real binary rather than only in a unit test.
+          cat > cirrus.yaml <<'CONFIG'
+          commands:
+            create_scratch: echo mine-not-cirrus-own
+          CONFIG
+
+          exits_zero "$binary" --version
+          exits_zero "$binary" run create_scratch
+          grep -q mine-not-cirrus-own last.log
+
+          # A name that could not be typed is refused when the file is read, against the key that
+          # has it - not as an argument-parser error naming neither.
+          cat > cirrus.yaml <<'CONFIG'
+          commands:
+            "deploy everything": echo nope
+          CONFIG
+
+          exits_non_zero "$binary" run anything
+          grep -q 'deploy everything' last.log
 
           # A project still on 0.2.x is told what to do, rather than that its config is missing.
           mv cirrus.yaml cirrus.toml

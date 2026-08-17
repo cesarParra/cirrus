@@ -83,7 +83,10 @@ class ScratchOrgDefinition {
 /// become subcommands and orgs become an argument, so a name with a space in it arrives as two
 /// words and a name starting with `-` arrives as an option. Rejected here, where the file and the
 /// key can be named, rather than by the argument parser, which knows neither.
-final _nameOnACommandLine = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
+///
+/// `schema/cirrus.schema.json` states the same pattern so an editor says it first. A test pins the
+/// two together, since nothing else would notice them drifting apart.
+final nameOnACommandLine = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
 
 /// A field of the type it is declared as, or a sentence naming what is wrong with it. Without this
 /// a mistyped `duration: "30"` reaches the user as a Dart type error naming neither the field nor
@@ -317,16 +320,14 @@ class Config {
   /// through that its fourth step names nothing has already run the first three, and the first
   /// three are a scratch org and a deploy.
   void _checkNames() {
-    for (final (kind, named) in [
-      ('command', commands.map((command) => command.name)),
-      ('flow', flows.map((flow) => flow.name)),
-      ('org', scratchOrgDefinitions.map((org) => org.name)),
+    for (final (kind, name) in [
+      for (final command in commands) ('command', command.name),
+      for (final flow in flows) ('flow', flow.name),
+      for (final org in scratchOrgDefinitions) ('org', org.name),
     ]) {
-      for (final name in named) {
-        if (!_nameOnACommandLine.hasMatch(name)) {
-          throw "'$name' cannot name a $kind: a name is letters, digits, '-' and '_', starting "
-              "with a letter or a digit, because it is typed on the command line.";
-        }
+      if (!nameOnACommandLine.hasMatch(name)) {
+        throw "'$name' cannot name a $kind: a name is letters, digits, '-' and '_', starting "
+            "with a letter or a digit, because it is typed on the command line.";
       }
     }
 

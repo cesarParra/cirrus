@@ -28,6 +28,13 @@ class RunCommand extends Command implements ReadsConfig {
       addSubcommand(RunNamedCommand(config, namedCommand));
     }
   }
+
+  // Every subcommand comes out of the config file, so a config naming no commands leaves this a
+  // leaf - and `args` demands a `run()` from a leaf. Reached only then: with subcommands to offer,
+  // `args` reports the missing one itself and never calls this.
+  @override
+  Either<String, String> run() =>
+      Left('No commands are defined in $configFileName.');
 }
 
 class RunNamedCommand extends Command {

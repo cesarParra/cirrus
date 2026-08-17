@@ -1,9 +1,5 @@
-import 'dart:convert';
-
 import 'package:cirrus/src/commands/runner.dart';
-import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
@@ -72,52 +68,6 @@ flows:
 
       expect(status, 0);
       expect(logger.errors, isEmpty);
-    });
-  });
-
-  group('package create says whether to bump, not which none', () {
-    late FakeFileSystem fileSystem;
-
-    setUp(() {
-      fileSystem = FakeFileSystem('sfdx-project.json', true);
-      getIt.registerSingleton<Either<String, Config>>(Left('No config'));
-      getIt.registerFactoryParam<FileSystem, String, void>(
-        (String path, _) => fileSystem,
-      );
-    });
-
-    test('--no-bump still writes a version name it was given', () async {
-      await run(
-        'package create --package SamplePackage --no-bump --version-name="New Name"'
-            .toArguments(),
-        configFileName: "",
-      );
-
-      expect(logger.errors, isEmpty);
-      expect(fileSystem.contents, contains('"versionName": "New Name"'));
-      expect(fileSystem.contents, contains('"versionNumber": "2.30.0.NEXT"'));
-    });
-
-    test('--version-type no longer answers whether', () async {
-      final status = await run(
-        'package create --package SamplePackage --version-type=none'
-            .toArguments(),
-        configFileName: "",
-      );
-
-      expect(status, isNot(0));
-      expect(runner.commands, isEmpty);
-    });
-
-    test('--name no longer means the version label', () async {
-      final status = await run(
-        'package create --package SamplePackage --name="New Name"'
-            .toArguments(),
-        configFileName: "",
-      );
-
-      expect(status, isNot(0));
-      expect(jsonDecode(fileSystem.contents), isNot(contains('New Name')));
     });
   });
 }

@@ -42,7 +42,7 @@ class CreateOrgCommand extends Command {
 
   @override
   Future<Either<String, String>> run() async {
-    final named = argResults?.rest ?? const [];
+    final named = argResults!.rest;
 
     if (named.length > 1) {
       return Left(
@@ -53,7 +53,7 @@ class CreateOrgCommand extends Command {
 
     return await runCreateScratch(
       named.firstOrNull,
-      setDefault: argResults?.flag('set-default') ?? true,
+      setDefault: argResults!.flag('set-default'),
     );
   }
 }

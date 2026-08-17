@@ -178,3 +178,14 @@ class FakeFileSystem implements FileSystem {
 extension JsonEncoding on Map<String, dynamic> {
   String encoded() => jsonEncode(this);
 }
+
+/// The doubles a `package create` test runs against: an `sfdx-project.json` it can read and write,
+/// registered where the command will look for it, and no config - `package` never reads one.
+FakeFileSystem registerSfdxProject({bool exists = true}) {
+  final fileSystem = FakeFileSystem('sfdx-project.json', exists);
+  registerConfigFailure('No config available');
+  getIt.registerFactoryParam<FileSystem, String, void>(
+    (String path, _) => fileSystem,
+  );
+  return fileSystem;
+}

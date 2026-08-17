@@ -115,6 +115,16 @@ class Create extends Command {
 
   @override
   Future<Either<String, String>> run() async {
+    // `--version-type` says which part to increment and `--no-bump` says not to, so the two
+    // together are an instruction with no reading. Taking one and ignoring the other looks exactly
+    // like having honoured it, and the difference is a released version number.
+    if (argResults!.flag('no-bump') && argResults!.wasParsed('version-type')) {
+      return Left(
+        '--no-bump leaves the version number alone, so there is no --version-type to apply. '
+        'Ask for one or the other.',
+      );
+    }
+
     final sfdxProjectJsonPath = argResults!['sfdx-project-json-path'] as String;
     // Look for the "sfdx-project.json" file in the current directory
     final projectFile = getIt.get<FileSystem>(param1: sfdxProjectJsonPath);
