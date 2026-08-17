@@ -33,6 +33,10 @@ jobs:
 
   run-tests:
     runs-on: ubuntu-latest
+    # A cirrus that fails to exit is a real failure mode - a flow holds a spinner's timer, so a
+    # step that ends the wrong way reports nothing and never returns. Bounded, so that shows up as
+    # a red job in minutes rather than as the runner's own six-hour ceiling.
+    timeout-minutes: 10
 
     steps:
       - name: Check out code
@@ -182,6 +186,46 @@ jobs:
 
           # Not 1: a command that chose 3 is answered with 3, through `run` and through a flow.
           exits_with 3 "$binary" run three
+
+          # The paths that shell out to `sf` answer with its status too, and this is the only layer
+          # that can say so: a unit test replaces the runner with a double, so it agrees with
+          # whatever the double was told - which is how four of these once returned 2 while the
+          # tests were green. A stub on PATH is what makes them reachable without an org.
+          mkdir -p stub
+          printf '#!/bin/sh\nexit 7\n' > stub/sf
+          chmod +x stub/sf
+          PATH="$PWD/stub:$PATH"
+
+          cat > cirrus.yaml <<'CONFIG'
+          defaultOrg: dev
+          orgs:
+            dev:
+              definitionFile: config/dev.json
+          commands:
+            hello: echo hello-from-cirrus
+          flows:
+            makes-an-org:
+              steps:
+                - createScratch: dev
+          CONFIG
+
+          exits_with 7 "$binary" org create dev
+          exits_with 7 "$binary" org create
+          exits_with 7 "$binary" flow makes-an-org
+          cat > sfdx-project.json <<'PROJECT'
+          {
+            "packageDirectories": [
+              { "path": "force-app", "package": "Whatever", "versionNumber": "1.0.0.NEXT" }
+            ]
+          }
+          PROJECT
+
+          exits_with 7 "$binary" package create --package Whatever --no-bump
+
+          # And a step that fails still lets cirrus exit: a flow's spinner holds a timer, so one
+          # left running is a process that reports nothing and never returns.
+          printf '#!/bin/sh\nexit 0\n' > stub/sf
+          exits_with 0 "$binary" flow makes-an-org
 
           # `run` holds only what the config names, so a command may take any name - including one
           # a built-in used to have. This is the whole CLI failing to build if it ever regresses,
