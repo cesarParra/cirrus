@@ -267,12 +267,10 @@ commands:
 
     expect(defined, nameOnACommandLine.pattern);
 
+    const reference = {r'$ref': r'#/$defs/name'};
     for (final section in ['orgs', 'commands', 'flows']) {
-      expect(
-        schema['properties'][section]['propertyNames'],
-        {r'$ref': r'#/$defs/name'},
-        reason: '$section keys are typed on the command line too',
-      );
+      final propertyNames = schema['properties'][section]['propertyNames'];
+      expect(propertyNames, reference, reason: '$section keys are typed too');
     }
   });
 }
