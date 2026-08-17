@@ -1,9 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:cirrus/src/commands/init/init_template.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:test/test.dart';
+
+import 'helpers.dart';
 
 Config parse(String yaml) => Config.fromYaml(yaml);
 
@@ -260,9 +259,7 @@ commands:
   test('the schema states the same rule the parser enforces', () {
     // An editor reads the schema and cirrus reads the regex. Two statements of one rule drift
     // apart silently: the editor blesses a name the parser then refuses, or the reverse.
-    final schema =
-        jsonDecode(File('schema/cirrus.schema.json').readAsStringSync())
-            as Map<String, dynamic>;
+    final schema = schemaDocument();
     final defined = schema[r'$defs']['name']['pattern'] as String;
 
     expect(defined, nameOnACommandLine.pattern);
@@ -272,6 +269,48 @@ commands:
       final propertyNames = schema['properties'][section]['propertyNames'];
       expect(propertyNames, reference, reason: '$section keys are typed too');
     }
+  });
+
+  test('the schema takes the same keys the parser reads', () {
+    // Every level states its keys twice - once as a Dart set, once as the schema's `properties` -
+    // and an editor blessing a key the parser refuses is the drift this catches. A level added
+    // later has to be added here, which is the point: the list is the checklist.
+    final schema = schemaDocument();
+    final defs = schema[r'$defs'] as Map<String, dynamic>;
+
+    final pairs = <String, Set<String>>{
+      'the root': Config.rootKeys,
+      'an org': ScratchOrgDefinition.keys,
+      'a command': NamedCommand.keys,
+      'a flow': Flow.keys,
+    };
+
+    final declared = <String, Set<String>>{
+      'the root': (schema['properties'] as Map<String, dynamic>).keys.toSet(),
+      'an org': (defs['org']['properties'] as Map<String, dynamic>).keys
+          .toSet(),
+      'a command':
+          ((defs['command']['oneOf'] as List)[1]['properties']
+                  as Map<String, dynamic>)
+              .keys
+              .toSet(),
+      'a flow': (defs['flow']['properties'] as Map<String, dynamic>).keys
+          .toSet(),
+    };
+
+    pairs.forEach((level, keys) {
+      expect(declared[level], keys, reason: level);
+    });
+
+    final stepBranches = defs['step']['oneOf'] as List;
+    expect(
+      (stepBranches[0]['properties'] as Map<String, dynamic>).keys.toSet(),
+      FlowStep.createScratchKeys,
+    );
+    expect(
+      (stepBranches[1]['properties'] as Map<String, dynamic>).keys.toSet(),
+      FlowStep.commandKeys,
+    );
   });
 
   group('a key cirrus does not know', () {
@@ -369,6 +408,40 @@ commands:
     run: echo ${{ nothing }} yet
 """),
         throwsA(contains('greet')),
+      );
+    });
+
+    test('is refused in any string the config file supplies', () {
+      // The reservation is worth what the narrowest field it misses is worth: `alias` and
+      // `definitionFile` are interpolated into a real command line, so an interpolation feature
+      // would change what an existing config creates if they were left out.
+      expect(
+        () => parse(r"""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+    alias: ${{ steps.org.name }}
+"""),
+        throwsA(contains('alias')),
+      );
+
+      expect(
+        () => parse(r"""
+orgs:
+  dev:
+    definitionFile: ${{ inputs.file }}
+"""),
+        throwsA(contains('definitionFile')),
+      );
+
+      expect(
+        () => parse(r"""
+commands:
+  deploy:
+    description: ${{ nope }}
+    run: sf project deploy start
+"""),
+        throwsA(contains('description')),
       );
     });
 

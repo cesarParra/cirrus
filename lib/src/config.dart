@@ -75,7 +75,8 @@ class ScratchOrgDefinition {
     this.wait,
   }) : alias = alias ?? name;
 
-  static const _keys = {
+  /// Stated here and in the schema's `$defs/org`; a test holds the two together.
+  static const keys = {
     'definitionFile',
     'duration',
     'alias',
@@ -84,30 +85,35 @@ class ScratchOrgDefinition {
   };
 
   factory ScratchOrgDefinition.parse(MapEntry<String, dynamic> entry) {
-    if (entry.value case Map<String, dynamic> mapping) {
-      // Named before the general check, which would report it as a key that does not exist and
-      // leave the reader to find where it went.
-      if (mapping.containsKey('default')) {
-        throw "The org '${entry.key}' says 'default'. Which org to create is now one root "
-            "'defaultOrg: ${entry.key}', so that two orgs cannot both claim it.";
-      }
-
-      _onlyKeysCirrusReads(mapping, "the org '${entry.key}'", _keys);
-    }
-
-    return switch (entry.value) {
-      {'definitionFile': String definitionFile} => ScratchOrgDefinition(
-        entry.key,
-        definitionFile,
-        duration: _typed<int>(entry.value['duration'], 'duration', entry.key),
-        alias: _typed<String>(entry.value['alias'], 'alias', entry.key),
-        namespace:
-            _typed<bool>(entry.value['namespace'], 'namespace', entry.key) ??
-            true,
-        wait: _typed<int>(entry.value['wait'], 'wait', entry.key),
-      ),
+    // Narrowed once, so that every read below is a plain read of a mapping.
+    final definition = switch (entry.value) {
+      Map<String, dynamic> mapping => mapping,
       _ => throw "The org '${entry.key}' needs a 'definitionFile'.",
     };
+
+    // Named before the general check, which would report it as a key that does not exist and leave
+    // the reader to find where it went.
+    if (definition.containsKey('default')) {
+      throw "The org '${entry.key}' says 'default'. Which org to create is now one root "
+          "'defaultOrg: ${entry.key}', so that two orgs cannot both claim it.";
+    }
+
+    _onlyKeysCirrusReads(definition, "the org '${entry.key}'", keys);
+
+    return ScratchOrgDefinition(
+      entry.key,
+      _typed<String>(
+            definition['definitionFile'],
+            'definitionFile',
+            entry.key,
+          ) ??
+          (throw "The org '${entry.key}' needs a 'definitionFile'."),
+      duration: _typed<int>(definition['duration'], 'duration', entry.key),
+      alias: _typed<String>(definition['alias'], 'alias', entry.key),
+      namespace:
+          _typed<bool>(definition['namespace'], 'namespace', entry.key) ?? true,
+      wait: _typed<int>(definition['wait'], 'wait', entry.key),
+    );
   }
 }
 
@@ -120,11 +126,11 @@ class ScratchOrgDefinition {
 /// one error today and buys the whole feature later.
 final _reservedSigil = RegExp(r'\$\{\{');
 
-void _noReservedSigil(String commandLine, String owner) {
-  if (_reservedSigil.hasMatch(commandLine)) {
-    throw "The command line of '$owner' contains '\${{', which cirrus reserves for a future "
-        "release and does not interpret yet. A `\$VARIABLE` or `\${BRACED}` reaches the program "
-        "as written and is unaffected.";
+void _noReservedSigil(String value, String field, String owner) {
+  if (_reservedSigil.hasMatch(value)) {
+    throw "'$field' of '$owner' contains '\${{', which cirrus reserves for a future release and "
+        "does not interpret yet. A `\$VARIABLE` or `\${BRACED}` reaches the program as written "
+        "and is unaffected.";
   }
 }
 
@@ -141,12 +147,20 @@ final nameOnACommandLine = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
 /// a mistyped `duration: "30"` reaches the user as a Dart type error naming neither the field nor
 /// the org it is in.
 T? _typed<T>(dynamic value, String field, String owner) {
-  return switch (value) {
+  final typed = switch (value) {
     null => null,
     T typed => typed,
     _ =>
       throw "'$field' of '$owner' is a ${value.runtimeType} where cirrus expects $T: $value",
   };
+
+  // Every string the file supplies passes through here, which is the one place the reservation can
+  // be made without having to remember which fields reach a command line.
+  if (typed is String) {
+    _noReservedSigil(typed, field, owner);
+  }
+
+  return typed;
 }
 
 class NamedCommand {
@@ -169,6 +183,9 @@ class NamedCommand {
     this.dependsOn = const [],
   });
 
+  /// Stated here and in the schema's `$defs/command`; a test holds the two together.
+  static const keys = {'run', 'description', 'dependsOn'};
+
   /// A command is either the command line itself, or a mapping carrying it alongside anything else
   /// worth saying about the command.
   factory NamedCommand.parse(MapEntry<String, dynamic> entry) {
@@ -181,18 +198,10 @@ class NamedCommand {
             "one is a ${entry.value.runtimeType}.",
     };
 
-    _onlyKeysCirrusReads(definition, "the command '${entry.key}'", {
-      'run',
-      'description',
-      'dependsOn',
-    });
+    _onlyKeysCirrusReads(definition, "the command '${entry.key}'", keys);
 
     final run = _typed<String>(definition['run'], 'run', entry.key);
     final dependsOn = _dependsOn(definition, entry.key);
-
-    if (run != null) {
-      _noReservedSigil(run, entry.key);
-    }
 
     if (run == null && dependsOn.isEmpty) {
       throw "The command '${entry.key}' has no 'run' and no 'dependsOn', so there is nothing for "
@@ -236,39 +245,45 @@ List<String> _dependsOn(Map<String, dynamic> definition, String owner) {
 sealed class FlowStep {
   FlowStep();
 
+  /// Stated here and in the schema's `$defs/step`; a test holds the two together.
+  static const createScratchKeys = {'createScratch', 'setDefault'};
+  static const commandKeys = {'command'};
+
   factory FlowStep.parse(String flowName, dynamic unparsed) {
-    if (unparsed is Map<String, dynamic> &&
-        unparsed.containsKey('createScratch') &&
-        unparsed.containsKey('command')) {
+    // Narrowed once, so that every read below is a plain read of a mapping.
+    final step = switch (unparsed) {
+      Map<String, dynamic> mapping => mapping,
+      _ => throw "A step of the '$flowName' flow is not a mapping: $unparsed",
+    };
+
+    if (step.containsKey('createScratch') && step.containsKey('command')) {
       throw "A step of the '$flowName' flow is both a 'createScratch' and a 'command'. A step is "
           "one thing; two steps are two entries in the list.";
     }
 
-    return switch (unparsed) {
-      {'createScratch': String orgName} => () {
-        _onlyKeysCirrusReads(
-          unparsed as Map<String, dynamic>,
-          "a 'createScratch' step of the '$flowName' flow",
-          {'createScratch', 'setDefault'},
-        );
-        return CreateScratchFlowStep(
-          orgName,
-          _typed<bool>(unparsed['setDefault'], 'setDefault', flowName) ?? true,
-        );
-      }(),
-      {'command': String commandName} => () {
-        _onlyKeysCirrusReads(
-          unparsed as Map<String, dynamic>,
-          "a 'command' step of the '$flowName' flow",
-          {'command'},
-        );
-        return RunCommandFlowStep(commandName);
-      }(),
-      Map<String, dynamic> step =>
-        throw "'${step.keys.join(', ')}' in the '$flowName' flow is not a kind of step cirrus "
-            "knows. A step is 'createScratch' or 'command'.",
-      _ => throw "A step of the '$flowName' flow is not a mapping: $unparsed",
-    };
+    if (step['createScratch'] case String orgName) {
+      _onlyKeysCirrusReads(
+        step,
+        "a 'createScratch' step of the '$flowName' flow",
+        createScratchKeys,
+      );
+      return CreateScratchFlowStep(
+        orgName,
+        _typed<bool>(step['setDefault'], 'setDefault', flowName) ?? true,
+      );
+    }
+
+    if (step['command'] case String commandName) {
+      _onlyKeysCirrusReads(
+        step,
+        "a 'command' step of the '$flowName' flow",
+        commandKeys,
+      );
+      return RunCommandFlowStep(commandName);
+    }
+
+    throw "'${step.keys.join(', ')}' in the '$flowName' flow is not a kind of step cirrus knows. "
+        "A step is 'createScratch' or 'command'.";
   }
 
   String printable();
@@ -316,18 +331,27 @@ class Flow {
     this.dependsOn = const [],
   });
 
+  /// Stated here and in the schema's `$defs/flow`; a test holds the two together.
+  static const keys = {'description', 'steps', 'dependsOn'};
+
   factory Flow.parse(MapEntry<String, dynamic> entry) {
+    // Narrowed, then checked for keys, then for shape - in that order, so that a misspelt `steps`
+    // is reported as the key it is rather than as a flow with no steps in it.
     final definition = switch (entry.value) {
-      {'steps': List<dynamic> steps} when steps.isNotEmpty =>
-        entry.value as Map<String, dynamic>,
+      Map<String, dynamic> mapping => mapping,
       _ => throw "The flow '${entry.key}' needs 'steps'.",
     };
 
-    _onlyKeysCirrusReads(definition, "the flow '${entry.key}'", {
-      'description',
+    _onlyKeysCirrusReads(definition, "the flow '${entry.key}'", keys);
+
+    final steps = _typed<List<dynamic>>(
+      definition['steps'],
       'steps',
-      'dependsOn',
-    });
+      entry.key,
+    );
+    if (steps == null || steps.isEmpty) {
+      throw "The flow '${entry.key}' needs 'steps'.";
+    }
 
     return Flow(
       entry.key,
@@ -336,9 +360,7 @@ class Flow {
         'description',
         entry.key,
       ),
-      steps: (definition['steps'] as List<dynamic>)
-          .map((step) => FlowStep.parse(entry.key, step))
-          .toList(),
+      steps: steps.map((step) => FlowStep.parse(entry.key, step)).toList(),
       dependsOn: _dependsOn(definition, entry.key),
     );
   }
@@ -373,13 +395,11 @@ class Config {
   factory Config.fromYaml(String source) =>
       Config.parse(asPlainMap(loadYaml(source)));
 
+  /// Stated here and in the schema's root `properties`; a test holds the two together.
+  static const rootKeys = {'defaultOrg', 'orgs', 'commands', 'flows'};
+
   factory Config.parse(Map<String, dynamic> unparsed) {
-    _onlyKeysCirrusReads(unparsed, 'the $configFileName file', {
-      'defaultOrg',
-      'orgs',
-      'commands',
-      'flows',
-    });
+    _onlyKeysCirrusReads(unparsed, 'the $configFileName file', rootKeys);
 
     final orgs = _section(unparsed, 'orgs', ScratchOrgDefinition.parse);
 
@@ -390,7 +410,9 @@ class Config {
       'defaultOrg',
       configFileName,
     );
-    final chosen = orgs.where((org) => org.name == named).firstOrNull;
+    final chosen = named == null
+        ? null
+        : orgs.where((org) => org.name == named).firstOrNull;
     if (named != null && chosen == null) {
       throw "'defaultOrg' names '$named', which is not an org.";
     }
