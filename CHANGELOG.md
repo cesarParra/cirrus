@@ -1,6 +1,7 @@
 ## 0.8.0
 
-- **The exit status says which kind of failure it was.** Every failure exited 1, so a build server
+- **The exit status says which kind of failure it was**, on every path that shells out - `run`,
+  a flow, `org create`, `package create` and `package get-latest` alike. Every failure exited 1, so a build server
   could not tell "your tests failed" from "your cirrus.yaml is invalid" - and the failing command's
   own status was available and thrown away. Now: `0` success, *n* passed through unchanged from the
   command that exited *n*, `2` when cirrus could not do what was asked, `141` on a closed pipe.

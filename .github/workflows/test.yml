@@ -79,14 +79,6 @@ jobs:
           # the exact defect this step exists to catch. And piping into `grep -q` closes the pipe at
           # the first match while cirrus is still writing, which fails the step for the wrong
           # reason - so output is captured and grepped from the file.
-          exits_zero() {
-            if ! "$@" > last.log 2>&1; then
-              echo "Expected '$*' to succeed. It did not." >&2
-              cat last.log >&2
-              exit 1
-            fi
-          }
-
           exits_non_zero() {
             if "$@" > last.log 2>&1; then
               echo "Expected '$*' to exit non-zero. It exited 0." >&2
@@ -95,13 +87,12 @@ jobs:
             fi
           }
 
-          # The status is a published contract, so the tests that care say which number.
+          # The status is a published contract, so every assertion says which number it wants.
+          # `|| got=$?` rather than `if ! ...`: inside an inverted condition `$?` is the status of
+          # the inversion, which is zero exactly when the command failed.
           exits_with() {
-            local want="$1"; shift
-            set +e
-            "$@" > last.log 2>&1
-            local got=$?
-            set -e
+            local want="$1" got=0; shift
+            "$@" > last.log 2>&1 || got=$?
             if [ "$got" -ne "$want" ]; then
               echo "Expected '$*' to exit $want. It exited $got." >&2
               cat last.log >&2
@@ -109,11 +100,11 @@ jobs:
             fi
           }
 
-          exits_zero "$binary" --version
+          exits_with 0 "$binary" --version
 
           # init writes a config where there is none, refuses to overwrite one, and writes
           # something cirrus can then read.
-          exits_zero "$binary" init
+          exits_with 0 "$binary" init
           test -f cirrus.yaml
           exits_non_zero "$binary" init
           # Reads back what init wrote: an empty config is a config with no commands in it, and
@@ -145,17 +136,17 @@ jobs:
                 - command: boom
           CONFIG
 
-          exits_zero "$binary" run hello
+          exits_with 0 "$binary" run hello
           grep -q hello-from-cirrus last.log
 
           # A command's prerequisites run when it does. That they run in the right order, and once,
           # is asserted in depends_on_test.dart, where it can be seen.
-          exits_zero "$binary" run check
+          exits_with 0 "$binary" run check
           grep -q building last.log
           grep -q deploying last.log
 
           # Arguments after `--` reach the command.
-          exits_zero "$binary" run hello -- --and-this
+          exits_with 0 "$binary" run hello -- --and-this
           grep -q -- '--and-this' last.log
 
           # A reader that stops reading ends cirrus the way it ends any tool: quietly, with the
@@ -175,7 +166,7 @@ jobs:
           fi
 
           # A flow's prerequisite runs, and its repeated step repeats.
-          exits_zero "$binary" flow demo
+          exits_with 0 "$binary" flow demo
           test "$(grep -c building last.log)" -eq 1
           test "$(grep -c deploying last.log)" -eq 2
 
@@ -200,8 +191,8 @@ jobs:
             create_scratch: echo mine-not-cirrus-own
           CONFIG
 
-          exits_zero "$binary" --version
-          exits_zero "$binary" run create_scratch
+          exits_with 0 "$binary" --version
+          exits_with 0 "$binary" run create_scratch
           grep -q mine-not-cirrus-own last.log
 
           # A name that could not be typed is refused when the file is read, against the key that

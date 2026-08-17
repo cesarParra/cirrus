@@ -9,11 +9,11 @@ Future<Either<Failure, String>> runCreateScratch(
   String? orgDefinitionName, {
   required bool setDefault,
 }) async {
-  final config = getIt.get<Either<String, Config>>();
+  final config = getIt.get<Either<Failure, Config>>();
 
   switch (config) {
     case Left(:final value):
-      return Left(Failure(value));
+      return Left(value);
     case Right(:final value):
       final orgs = value.scratchOrgDefinitions;
 
@@ -54,7 +54,14 @@ Future<Either<Failure, String>> _create(
   ScratchOrgDefinition orgDefinition, {
   required bool setDefault,
 }) async {
-  await getIt.get<CliRunner>().run(_build(orgDefinition, setDefault));
+  try {
+    await getIt.get<CliRunner>().run(_build(orgDefinition, setDefault));
+  } on Failure catch (failure) {
+    // The signature promises a value, so the failure `CliRunner` throws is returned rather than
+    // left to escape past every caller that was told it would not.
+    return Left(failure);
+  }
+
   return Right('Scratch org created successfully.');
 }
 
