@@ -41,14 +41,15 @@ console.log('1. Commit these changes: git add -A && git commit -m "Bump version 
 console.log('2. Push to main: git push origin main');
 console.log('3. The GitHub Action will automatically create a release and publish to npm');
 
-function updateVersionFile(newVersion) {  
-  // Generate Dart file content
+function updateVersionFile(newVersion) {
+  // Not indented: a template literal keeps the leading whitespace of every line after the first,
+  // and this one is a source file.
   const dartContent = `// Generated file. Do not edit manually.
-  // Run 'node scripts/bumg-version.js' to update.
-  
-  const String appVersion = '${newVersion}';
-  `;
-  
+// Run 'node scripts/bump-version.js' to update.
+
+const String appVersion = '${newVersion}';
+`;
+
   // Write to lib/src/version.dart
   const versionFilePath = path.join(__dirname, '..', 'lib', 'src', 'version.dart');
   fs.writeFileSync(versionFilePath, dartContent);
