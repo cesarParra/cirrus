@@ -1,5 +1,8 @@
-const configContent = """
-# yaml-language-server: \$schema=https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json
+import '../../config.dart';
+
+const configContent =
+    """
+# yaml-language-server: \$schema=$schemaUrl
 #
 # That line is what gives an editor completion and validation for this file, from the same schema
 # that documents every key below. VS Code needs the YAML extension; JetBrains IDEs read it as is.
