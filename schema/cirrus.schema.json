@@ -38,6 +38,7 @@
   "$defs": {
     "name": {
       "description": "A name is letters, digits, '-' and '_', starting with a letter or a digit, because it is typed on the command line.",
+      "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
     },
     "org": {

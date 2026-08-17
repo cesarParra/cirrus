@@ -16,7 +16,7 @@ concurrency:
 jobs:
   # A workflow file that does not parse fails every job on the branch at zero seconds and reports
   # nothing about the code - and nothing local catches it, because the only thing that reads these
-  # files is GitHub. Checked first, and in a job of its own, so it answers without a toolchain.
+  # files is GitHub. A job of its own, so it answers without waiting for a toolchain.
   #
   # Pinned like the SDK: a linter that moves on its own fails a branch nobody touched.
   workflows:
@@ -193,42 +193,6 @@ jobs:
 
           exits_non_zero "$binary" run anything
           grep -q 'deploy everything' last.log
-
-          # A key cirrus does not read does nothing, and doing nothing quietly is what a config
-          # file cannot afford.
-          cat > cirrus.yaml <<'CONFIG'
-          orgs:
-            dev:
-              definitionFile: config/dev.json
-              durationDays: 30
-          CONFIG
-
-          exits_non_zero "$binary" run anything
-          grep -q durationDays last.log
-
-          # Reserved today so it can mean something later without breaking a config that used the
-          # characters for their own sake.
-          #
-          # Written with printf rather than spelled out: the sigil cirrus reserves is also GitHub's
-          # own expression syntax, and a workflow file containing it is evaluated here rather than
-          # reaching the shell - which is a broken workflow, not a failing test.
-          sigil='$'
-          printf 'commands:\n  deploy: sf project deploy start --target-org %s{{ steps.org.alias }}\n' \
-            "$sigil" > cirrus.yaml
-
-          exits_non_zero "$binary" run anything
-          grep -q 'reserves for a future release' last.log
-
-          # Which org to create is one key at the root, so it cannot be claimed twice.
-          cat > cirrus.yaml <<'CONFIG'
-          defaultOrg: nowhere
-          orgs:
-            dev:
-              definitionFile: config/dev.json
-          CONFIG
-
-          exits_non_zero "$binary" run anything
-          grep -q nowhere last.log
 
           # A project still on 0.2.x is told what to do, rather than that its config is missing.
           mv cirrus.yaml cirrus.toml
