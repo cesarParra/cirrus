@@ -3,8 +3,9 @@ import 'package:cli_script/cli_script.dart' as cli;
 import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../service_locator.dart';
+import '../../failure.dart';
 
-Future<Either<String, String>> runCreateScratch(
+Future<Either<Failure, String>> runCreateScratch(
   String? orgDefinitionName, {
   required bool setDefault,
 }) async {
@@ -12,7 +13,7 @@ Future<Either<String, String>> runCreateScratch(
 
   switch (config) {
     case Left(:final value):
-      return Left(value);
+      return Left(Failure(value));
     case Right(:final value):
       final orgs = value.scratchOrgDefinitions;
 
@@ -23,8 +24,10 @@ Future<Either<String, String>> runCreateScratch(
 
         if (fallback == null) {
           return Left(
-            "No org to create. Name one - cirrus org create <org> - or name one 'defaultOrg' in "
-            "$configFileName.\r\n${_available(orgs)}",
+            Failure(
+              "No org to create. Name one - cirrus org create <org> - or name one 'defaultOrg' in "
+              "$configFileName.\r\n${_available(orgs)}",
+            ),
           );
         }
 
@@ -38,14 +41,16 @@ Future<Either<String, String>> runCreateScratch(
       return switch (named) {
         Some(:final value) => await _create(value, setDefault: setDefault),
         None() => Left(
-          "The org '$orgDefinitionName' is not defined in the $configFileName "
-          "file.\r\n${_available(orgs)}",
+          Failure(
+            "The org '$orgDefinitionName' is not defined in the $configFileName "
+            "file.\r\n${_available(orgs)}",
+          ),
         ),
       };
   }
 }
 
-Future<Either<String, String>> _create(
+Future<Either<Failure, String>> _create(
   ScratchOrgDefinition orgDefinition, {
   required bool setDefault,
 }) async {

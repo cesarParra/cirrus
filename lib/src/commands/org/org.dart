@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../config.dart';
 import 'create_scratch.dart';
+import '../../failure.dart';
 
 /// The orgs the config file describes. A topic of its own rather than a subcommand of `run`: `run`
 /// offers what the config file names, and a built-in sharing that namespace makes one config key
@@ -41,13 +42,15 @@ class CreateOrgCommand extends Command {
   }
 
   @override
-  Future<Either<String, String>> run() async {
+  Future<Either<Failure, String>> run() async {
     final named = argResults!.rest;
 
     if (named.length > 1) {
       return Left(
-        'One org is created at a time, and this names ${named.length}: '
-        '${named.join(', ')}.',
+        Failure(
+          'One org is created at a time, and this names ${named.length}: '
+          '${named.join(', ')}.',
+        ),
       );
     }
 

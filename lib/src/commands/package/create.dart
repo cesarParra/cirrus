@@ -6,6 +6,7 @@ import 'package:fpdart/fpdart.dart';
 import 'dart:convert';
 
 import 'package:cli_script/cli_script.dart' as cli;
+import 'package:cirrus/src/failure.dart';
 
 class Create extends Command {
   @override
@@ -114,14 +115,16 @@ class Create extends Command {
   }
 
   @override
-  Future<Either<String, String>> run() async {
+  Future<Either<Failure, String>> run() async {
     // `--version-type` says which part to increment and `--no-bump` says not to, so the two
     // together are an instruction with no reading. Taking one and ignoring the other looks exactly
     // like having honoured it, and the difference is a released version number.
     if (argResults!.flag('no-bump') && argResults!.wasParsed('version-type')) {
       return Left(
-        '--no-bump leaves the version number alone, so there is no --version-type to apply. '
-        'Ask for one or the other.',
+        Failure(
+          '--no-bump leaves the version number alone, so there is no --version-type to apply. '
+          'Ask for one or the other.',
+        ),
       );
     }
 
@@ -131,7 +134,9 @@ class Create extends Command {
 
     if (!projectFile.exists()) {
       return Left(
-        '$sfdxProjectJsonPath file not found in the current directory.',
+        Failure(
+          '$sfdxProjectJsonPath file not found in the current directory.',
+        ),
       );
     }
 
@@ -149,7 +154,9 @@ class Create extends Command {
 
     switch (packageDirectory) {
       case None():
-        return Left('Package "$packageName" not found in sfdx-project.json.');
+        return Left(
+          Failure('Package "$packageName" not found in sfdx-project.json.'),
+        );
       case Some(value: var dir):
         // Increment the version based on the provided version type
         final versionType = argResults!['version-type'] as String;
@@ -159,7 +166,9 @@ class Create extends Command {
         final packageVersion = dir.versionNumber;
 
         if (packageVersion == null || packageVersion.isEmpty) {
-          return Left('No versionName found for package "$packageName".');
+          return Left(
+            Failure('No versionName found for package "$packageName".'),
+          );
         }
 
         // A `.NEXT` version number means Salesforce owns the build number, so `--no-bump` leaves
@@ -222,7 +231,9 @@ class Create extends Command {
 
           if (packageVersionId == null || packageVersionId.isEmpty) {
             return Left(
-              'Failed to create package version. No SubscriberPackageVersionId found in the output.',
+              Failure(
+                'Failed to create package version. No SubscriberPackageVersionId found in the output.',
+              ),
             );
           }
 

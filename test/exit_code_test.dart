@@ -60,4 +60,72 @@ commands:
 
     expect(await run('flow demo'.toArguments(), configFileName: ""), isNonZero);
   });
+
+  group('the status a build server reads', () {
+    test('is the one the failing command chose', () async {
+      withConfig(
+        """
+commands:
+  boom: "exit 3"
+""",
+        failing: true,
+        failsWith: 3,
+      );
+
+      expect(await run('run boom'.toArguments(), configFileName: ""), 3);
+    });
+
+    test('is the failing step\'s, when a flow is what ran it', () async {
+      withConfig(
+        """
+commands:
+  boom: "exit 7"
+
+flows:
+  demo:
+    steps:
+      - command: boom
+""",
+        failing: true,
+        failsWith: 7,
+      );
+
+      expect(await run('flow demo'.toArguments(), configFileName: ""), 7);
+    });
+
+    test('is 2 when cirrus could not do what was asked', () async {
+      withConfig("""
+commands:
+  hello: echo hello
+""");
+
+      expect(await run('run nope'.toArguments(), configFileName: ""), 2);
+    });
+
+    test('is 2 when the config file could not be read', () async {
+      registerDoubles();
+      registerConfigFailure('Was not able to load the $configFileName file.');
+
+      expect(await run('flow demo'.toArguments(), configFileName: ""), 2);
+    });
+
+    test('is 2 when the org to create is not defined', () async {
+      withConfig("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+""");
+
+      expect(await run('org create nope'.toArguments(), configFileName: ""), 2);
+    });
+
+    test('is 0 when everything did what it was asked', () async {
+      withConfig("""
+commands:
+  hello: echo hello
+""");
+
+      expect(await run('run hello'.toArguments(), configFileName: ""), 0);
+    });
+  });
 }

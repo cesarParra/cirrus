@@ -78,6 +78,20 @@ jobs:
             fi
           }
 
+          # The status is a published contract, so the tests that care say which number.
+          exits_with() {
+            local want="$1"; shift
+            set +e
+            "$@" > last.log 2>&1
+            local got=$?
+            set -e
+            if [ "$got" -ne "$want" ]; then
+              echo "Expected '$*' to exit $want. It exited $got." >&2
+              cat last.log >&2
+              exit 1
+            fi
+          }
+
           exits_zero "$binary" --version
 
           # init writes a config where there is none, refuses to overwrite one, and writes
@@ -100,6 +114,7 @@ jobs:
             check:
               dependsOn: [build, deploy]
             boom: "false"
+            three: sh -c "exit 3"
             many: seq 1 200000
 
           flows:
@@ -150,10 +165,15 @@ jobs:
           # A flow is a sequence, so there is no one step for an argument to belong to.
           exits_non_zero "$binary" flow demo -- --project=chromium
 
-          # A failure has to reach the shell, not just the person reading the output.
-          exits_non_zero "$binary" run boom
-          exits_non_zero "$binary" flow breaks
-          exits_non_zero "$binary" run no-such-command
+          # A failure has to reach the shell, not just the person reading the output - and which
+          # failure it was is the part a build server can act on. `boom` is `false`, so 1 is the
+          # command's own answer rather than a number cirrus chose.
+          exits_with 1 "$binary" run boom
+          exits_with 1 "$binary" flow breaks
+          exits_with 2 "$binary" run no-such-command
+
+          # Not 1: a command that chose 3 is answered with 3, through `run` and through a flow.
+          exits_with 3 "$binary" run three
 
           # `run` holds only what the config names, so a command may take any name - including one
           # a built-in used to have. This is the whole CLI failing to build if it ever regresses,

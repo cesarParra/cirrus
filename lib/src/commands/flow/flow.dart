@@ -7,6 +7,7 @@ import '../../config.dart';
 import '../../execution.dart';
 import '../../service_locator.dart';
 import '../org/create_scratch.dart';
+import '../../failure.dart';
 
 class FlowCommand extends Command implements ReadsConfig {
   @override
@@ -27,9 +28,9 @@ class FlowCommand extends Command implements ReadsConfig {
   }
 
   @override
-  Either<String, String> run() {
+  Either<Failure, String> run() {
     if (subcommands.isEmpty) {
-      return Left('No flows are defined in $configFileName.');
+      return Left(Failure('No flows are defined in $configFileName.'));
     }
 
     return Right('Available flows: ${subcommands.keys.join(', ')}');
@@ -49,15 +50,17 @@ class NamedFlowCommand extends Command {
   NamedFlowCommand(this.config, this.flow);
 
   @override
-  Future<Either<String, String>> run() async {
+  Future<Either<Failure, String>> run() async {
     // A flow is a sequence somebody wrote down, so there is no one step for an argument to belong
     // to. Saying so is the point: taking them and running the flow unchanged is indistinguishable
     // from having honoured them.
     final unread = argResults?.rest ?? const [];
     if (unread.isNotEmpty) {
       return Left(
-        "A flow takes no arguments, and '$name' was given "
-        "${unread.join(' ')}. Arguments go to one command: cirrus run <command> -- ...",
+        Failure(
+          "A flow takes no arguments, and '$name' was given "
+          "${unread.join(' ')}. Arguments go to one command: cirrus run <command> -- ...",
+        ),
       );
     }
 

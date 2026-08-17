@@ -198,6 +198,21 @@ Options:
 - `-p, --package` (required): The name of the package to get the version for. It must either be a package Id (starts with 0Ho), or the alias of the package Id as defined in the sfdx-project.json.
 - `-j, --sfdx-project-json-path`: Path to the sfdx-project.json file (default: current directory)
 
+## Exit status
+
+The status is the only part of a run a build server can read, so it says which kind of failure it
+was:
+
+| Status | Means |
+|---|---|
+| `0` | Everything cirrus was asked to do, it did |
+| *n* | A command cirrus ran exited *n*. Its answer, passed through unchanged |
+| `2` | Cirrus could not do what was asked: the config did not load, the command does not exist, the arguments name nothing |
+| `141` | Something stopped reading cirrus's output - `cirrus run x \| head`. What every tool exits with on a closed pipe |
+
+A script can therefore tell "your tests failed" from "your `cirrus.yaml` is wrong", and can pass a
+command's own status on to whatever reads it next.
+
 ## Configuration (cirrus.yaml)
 
 `cirrus.yaml` describes three things: the scratch **orgs** a project creates, the **commands** it

@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../execution.dart';
 import '../../service_locator.dart';
+import '../../failure.dart';
 
 /// Every subcommand here comes out of the config file, and nothing else ever does. A built-in
 /// sharing this namespace is a name a config file can collide with, and `args` refuses a duplicate
@@ -33,8 +34,8 @@ class RunCommand extends Command implements ReadsConfig {
   // leaf - and `args` demands a `run()` from a leaf. Reached only then: with subcommands to offer,
   // `args` reports the missing one itself and never calls this.
   @override
-  Either<String, String> run() =>
-      Left('No commands are defined in $configFileName.');
+  Either<Failure, String> run() =>
+      Left(Failure('No commands are defined in $configFileName.'));
 }
 
 class RunNamedCommand extends Command {
@@ -50,7 +51,7 @@ class RunNamedCommand extends Command {
   RunNamedCommand(this.config, this.command);
 
   @override
-  Future<Either<String, String>> run() async {
+  Future<Either<Failure, String>> run() async {
     // Empty on success: a command that worked says nothing, the way it always has.
     return (await Execution(config).step(
       command.name,
