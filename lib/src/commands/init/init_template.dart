@@ -6,12 +6,15 @@ const configContent = """
 #
 # https://github.com/cesarParra/cirrus#configuration
 
+# Paths in this file are relative to the directory holding it.
+#
+# defaultOrg: dev
+
 # orgs:
 #   dev:
 #     definitionFile: config/project-scratch-def.json
 #     duration: 30
 #     alias: my-scratch-org
-#     default: true
 
 # Commands are not run through a shell, so `&&`, pipes and \$VARIABLES reach the program as
 # arguments rather than syntax. A sequence of commands is a flow.

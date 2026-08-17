@@ -23,8 +23,8 @@ Future<Either<String, String>> runCreateScratch(
 
         if (fallback == null) {
           return Left(
-            "No org to create. Name one - cirrus org create <org> - or mark an org "
-            "'default: true' in $configFileName.\r\n${_available(orgs)}",
+            "No org to create. Name one - cirrus org create <org> - or name one 'defaultOrg' in "
+            "$configFileName.\r\n${_available(orgs)}",
           );
         }
 

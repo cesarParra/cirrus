@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:chalkdart/chalk.dart';
 import 'package:cirrus/src/config.dart';
@@ -189,3 +190,8 @@ FakeFileSystem registerSfdxProject({bool exists = true}) {
   );
   return fileSystem;
 }
+
+/// The published schema, as the tests that hold it and the parser together read it.
+Map<String, dynamic> schemaDocument() =>
+    jsonDecode(File('schema/cirrus.schema.json').readAsStringSync())
+        as Map<String, dynamic>;
