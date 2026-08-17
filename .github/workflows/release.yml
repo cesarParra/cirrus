@@ -25,15 +25,15 @@ jobs:
         run: |
           # Get the version from pubspec.yaml
           VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: //')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
           # Check if a tag with this version already exists
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "Version v$VERSION already exists"
-            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
           else
             echo "New version v$VERSION detected"
-            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
           fi
 
   test:
@@ -165,7 +165,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'

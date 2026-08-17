@@ -75,8 +75,8 @@ Creates a Salesforce scratch org from the definitions in your `cirrus.yaml` file
 cirrus org create <org_name>
 ```
 
-The org to create is named as an argument. Leave it out and cirrus creates the one marked
-`default: true`, so a project with one never names an org at all.
+The org to create is named as an argument. Leave it out and cirrus creates the one named by the
+root `defaultOrg`, so a project with one never names an org at all.
 
 Options:
 - `--set-default` / `--no-set-default`: Set the created org as the CLI's default. On by default
@@ -87,7 +87,7 @@ name it is keyed by.
 Examples:
 ```bash
 cirrus org create dev
-cirrus org create                    # the org marked `default: true`
+cirrus org create                    # the org named by `defaultOrg`
 cirrus org create ci --no-set-default
 ```
 
@@ -206,11 +206,12 @@ runs, and the **flows** that sequence them. Each is a mapping keyed by the name 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cesarParra/cirrus/main/schema/cirrus.schema.json
 
+defaultOrg: dev
+
 orgs:
   dev:
     definitionFile: config/project-scratch-def.json
     duration: 30
-    default: true
 
 commands:
   deploy: sf project deploy start
@@ -252,25 +253,54 @@ Orgs, commands and flows are keyed by a name you type on the command line, so a 
 digits, `-` and `_`, starting with a letter or a digit. Anything else is a config error, reported
 with the key that has it.
 
+### Keys and paths
+
+**A key cirrus does not read is an error, not a shrug.** `durationDays` reads exactly like
+`duration` to whoever wrote it, and silently getting the default instead is the failure a config
+file cannot afford. The message names the key, what it is on, and the keys that section does take.
+
+**Paths are relative to the directory holding `cirrus.yaml`**, not to wherever you happened to run
+`cirrus` from.
+
+**`${{ }}` is reserved** and refused today. Cirrus does not interpolate anything yet, and a later
+release that pipes one step's output into the next will need a syntax - one that cannot be
+introduced without breaking every config already using those characters. A `$VARIABLE` or
+`${BRACED}` still reaches the program as written and is unaffected.
+
+### The default org
+
+`defaultOrg` names the org `cirrus org create` creates when it is given none:
+
+```yaml
+defaultOrg: dev
+
+orgs:
+  dev:
+    definitionFile: config/dev-scratch-def.json
+```
+
+It is one key at the root rather than a flag on each org, so two orgs cannot both claim to be the
+default - there is nowhere to write it twice.
+
 ### Scratch org definitions
 
 Each org is keyed by the name you pass to `cirrus org create`, and takes:
 
-- `definitionFile` (required): path to the Salesforce scratch org definition JSON file
+- `definitionFile` (required): path to the Salesforce scratch org definition JSON file, relative
+  to the directory holding `cirrus.yaml`
 - `duration`: how many days the org lives, 1-30. Salesforce's own default applies without it
 - `alias`: the alias the org is created under. Defaults to the name it is keyed by
-- `default`: create this org when `cirrus org create` is given no org to create. At most one org
-  may say so
 - `namespace`: set `false` for an org that stands in for a subscriber's, which does not carry the
   package's namespace
 - `wait`: minutes to wait for the org to be created
 
 ```yaml
+defaultOrg: dev
+
 orgs:
   dev:
     definitionFile: config/dev-scratch-def.json
     duration: 7
-    default: true
 
   ci:
     definitionFile: config/project-scratch-def.json
@@ -279,7 +309,7 @@ orgs:
     alias: scratch-org
 ```
 
-With `default: true` set, `cirrus org create` needs no arguments at all.
+With `defaultOrg` set, `cirrus org create` needs no arguments at all.
 
 ### Commands
 
@@ -336,6 +366,11 @@ commands:
 `cirrus run check` runs `tw`, `compile`, `lint`, `test` - and `build` happens once, though both
 `lint` and `test` name it. A command with only `dependsOn` and no `run`, like `build`
 and `check` above, is a name for its prerequisites and runs nothing itself.
+
+What cirrus promises is that **a prerequisite has completed before the command that names it
+starts, and that it runs once**. It does not promise that two prerequisites of the same command run
+one after the other - `tw` and `compile` are independent, and a later cirrus may run them at the
+same time.
 
 Prerequisites are checked when the config is read, so a name that matches no command, or a chain
 that comes back round to where it started, is reported before anything runs.

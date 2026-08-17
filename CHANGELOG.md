@@ -1,3 +1,27 @@
+## 0.7.0
+
+Breaking changes to the config file, ahead of 1.0 freezing it.
+
+- **A key cirrus does not read is now an error.** It used to be dropped: `durationDays` instead of
+  `duration` changed nothing and said nothing, and the org quietly got the default. Checked at the
+  root and on every org, command, flow and flow step; the message names the key, what it is on, and
+  the keys that section does take. This can never be turned on after 1.0 without breaking configs
+  that were relying on the silence.
+- **`defaultOrg` at the root replaces `default: true` on an org.** One key, so two orgs cannot both
+  claim to be the default - there is nowhere to write it twice. An org still carrying `default` is
+  told where it went.
+- **`${{ }}` is reserved and refused.** Cirrus interpolates nothing today and the README promises a
+  command line reaches the program as written; a later release that pipes one step's output into
+  the next needs a syntax, and it cannot be introduced once a config in the wild uses those
+  characters for their own sake. `$VARIABLE` and `${BRACED}` are unaffected.
+- **`dependsOn` no longer promises siblings run in the order written.** What is promised is that a
+  prerequisite completes before the command naming it starts, and runs once - which leaves an
+  independent prerequisite graph free to run in parallel later.
+- **Paths in the config file are relative to the directory holding it**, not to where `cirrus` was
+  run from. Those are the same directory today, and this is which one it stays.
+- The schema states "a command has a `run` or a `dependsOn`" without an `anyOf`, so an editor stops
+  reporting a command that has both as validating against more than one variant.
+
 ## 0.6.0
 
 Breaking changes to the command line, ahead of 1.0 freezing it.

@@ -6,6 +6,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "defaultOrg": {
+      "description": "The org `cirrus org create` creates when it is not told which one. Names a key under `orgs`.",
+      "$ref": "#/$defs/name"
+    },
     "orgs": {
       "description": "The scratch orgs this project creates, keyed by the name you refer to them by.",
       "type": "object",
@@ -34,6 +38,7 @@
   "$defs": {
     "name": {
       "description": "A name is letters, digits, '-' and '_', starting with a letter or a digit, because it is typed on the command line.",
+      "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
     },
     "org": {
@@ -44,7 +49,7 @@
       ],
       "properties": {
         "definitionFile": {
-          "description": "Path to the scratch org definition file, relative to the project root.",
+          "description": "Path to the scratch org definition file, relative to the directory holding cirrus.yaml.",
           "type": "string"
         },
         "duration": {
@@ -56,10 +61,6 @@
         "alias": {
           "description": "The alias the org is created under. Defaults to the name this org is keyed by.",
           "type": "string"
-        },
-        "default": {
-          "description": "Create this org when `cirrus org create` is given no org to create. At most one org may say so.",
-          "type": "boolean"
         },
         "namespace": {
           "description": "Whether the org carries the project's package namespace. Set false for an org standing in for a subscriber's, which does not.",
@@ -91,25 +92,20 @@
               "type": "string"
             },
             "dependsOn": {
-              "description": "Commands that must have run before this one. A prerequisite, not a step: it runs once however many times it is named, and siblings run in the order written.",
+              "description": "Commands that must have run before this one. A prerequisite, not a step: each completes before this command starts, and runs once however many times it is named.",
               "type": "array",
               "items": {
                 "type": "string"
               }
             }
           },
-          "anyOf": [
-            {
-              "required": [
-                "run"
-              ]
-            },
-            {
-              "required": [
-                "dependsOn"
-              ]
+          "not": {
+            "description": "A command with neither runs nothing and names nothing.",
+            "properties": {
+              "run": false,
+              "dependsOn": false
             }
-          ]
+          }
         }
       ]
     },
@@ -132,7 +128,7 @@
           }
         },
         "dependsOn": {
-          "description": "Commands that must have run before the flow's first step, once each.",
+          "description": "Commands that must have run before the flow's first step: each completes before the first step starts, and runs once however many times it is named.",
           "type": "array",
           "items": {
             "type": "string"
