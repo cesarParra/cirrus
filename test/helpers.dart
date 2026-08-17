@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:chalkdart/chalk.dart';
+import 'package:cli_script/cli_script.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
@@ -11,9 +12,10 @@ import 'package:fpdart/fpdart.dart';
 /// of printing it, and a runner that keeps the command line instead of running it.
 ({TestLogger logger, TestRunner runner}) registerDoubles({
   bool failing = false,
+  int failsWith = 1,
 }) {
   final logger = TestLogger();
-  final runner = TestRunner(fails: failing);
+  final runner = TestRunner(fails: failing, failsWith: failsWith);
   getIt.registerSingleton<Logger>(logger);
   getIt.registerSingleton<CliRunner>(runner);
   return (logger: logger, runner: runner);
@@ -23,8 +25,9 @@ import 'package:fpdart/fpdart.dart';
 ({TestLogger logger, TestRunner runner}) withConfig(
   String yaml, {
   bool failing = false,
+  int failsWith = 1,
 }) {
-  final doubles = registerDoubles(failing: failing);
+  final doubles = registerDoubles(failing: failing, failsWith: failsWith);
   registerConfig(yaml);
   return doubles;
 }
@@ -74,14 +77,18 @@ class TestRunner implements CliRunner {
   /// real failure reaches cirrus.
   final bool fails;
 
-  TestRunner({String? simulatedOutput, this.fails = false})
+  /// The status the simulated command exits with, since propagating it is the whole point of
+  /// distinguishing one failure from another.
+  final int failsWith;
+
+  TestRunner({String? simulatedOutput, this.fails = false, this.failsWith = 1})
     : simulatedOutput = simulatedOutput ?? 'Simulated output';
 
   @override
   Future<void> run(String command) async {
     commands.add(command);
     if (fails) {
-      throw '$command failed with exit code 1.';
+      throw ScriptException(command, failsWith);
     }
   }
 
@@ -89,7 +96,7 @@ class TestRunner implements CliRunner {
   Future<String> output(String command) async {
     commands.add(command);
     if (fails) {
-      throw '$command failed with exit code 1.';
+      throw ScriptException(command, failsWith);
     }
     // Simulate output for testing purposes
     return simulatedOutput;

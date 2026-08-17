@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import 'config.dart';
 import 'service_locator.dart';
 import 'package:cli_script/cli_script.dart' as cli;
+import 'failure.dart';
 
 /// One run of cirrus, and the commands it has already carried out.
 ///
@@ -23,7 +24,7 @@ class Execution {
   ///
   /// [arguments] are appended to this command's command line and to nothing else: they were asked
   /// for by name, and a prerequisite dragged in behind it did not ask for them.
-  Future<Either<String, void>> step(
+  Future<Either<Failure, void>> step(
     String name, {
     List<String> arguments = const [],
   }) async {
@@ -32,7 +33,7 @@ class Execution {
     // Every name in the config is checked when it is read, so this is reachable only from a
     // caller that made one up.
     if (command == null) {
-      return Left("Command $name not found");
+      return Left(Failure("Command $name not found"));
     }
 
     return await _execute(command, arguments);
@@ -40,7 +41,7 @@ class Execution {
 
   /// Runs everything in [names] that this run has not already, in the order given, stopping at the
   /// first that fails.
-  Future<Either<String, void>> prerequisites(List<String> names) async {
+  Future<Either<Failure, void>> prerequisites(List<String> names) async {
     for (final name in names) {
       if (_completed.contains(name)) {
         continue;
@@ -55,7 +56,7 @@ class Execution {
     return Right(null);
   }
 
-  Future<Either<String, void>> _execute(
+  Future<Either<Failure, void>> _execute(
     NamedCommand command,
     List<String> arguments,
   ) async {
@@ -70,8 +71,13 @@ class Execution {
         await getIt.get<CliRunner>().run(
           [commandLine, ...arguments.map(cli.arg)].join(' '),
         );
+      } on cli.ScriptException catch (error) {
+        // The command ran and answered. Its status is what the caller wanted to know - a build
+        // server reading 1 for "your tests failed" and 1 for "your config is invalid" cannot tell
+        // them apart, and only this line knows which one this is.
+        return Left(Failure.fromCommand('$error', error.exitCode));
       } catch (error) {
-        return Left('$error');
+        return Left(Failure('$error'));
       }
     }
 
