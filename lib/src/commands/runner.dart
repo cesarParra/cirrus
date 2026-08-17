@@ -116,11 +116,27 @@ int _failed(Logger logger, Failure failure) {
 /// Why the config file did not load, when the command being run is one that needs it. `init` and
 /// `--version` are answerable without a config, and never ask for one.
 Failure? _configErrorFacing(CommandRunner runner, List<String> arguments) {
-  final invoked = arguments.isEmpty ? null : runner.commands[arguments.first];
+  final invoked = _invoked(runner, arguments);
   if (invoked is! ReadsConfig ||
       !getIt.isRegistered<Either<Failure, Config>>()) {
     return null;
   }
 
   return getIt.get<Either<Failure, Config>>().getLeft().toNullable();
+}
+
+/// The command these arguments name, according to the parser that will dispatch them.
+///
+/// Read off the parse rather than off `arguments.first`, which is the command only while nothing
+/// can precede it. A global option taking a value would sit there instead, the lookup would miss,
+/// and the cause would silently stop being reported - leaving the missing-subcommand symptom this
+/// exists to replace.
+Command? _invoked(CommandRunner runner, List<String> arguments) {
+  try {
+    final named = runner.parse(arguments).command?.name;
+    return named == null ? null : runner.commands[named];
+  } on UsageException {
+    // Arguments the parser cannot read name no command, and are reported as themselves.
+    return null;
+  }
 }
