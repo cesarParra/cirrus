@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:chalkdart/chalk.dart';
 import 'package:cirrus/src/config.dart';
+import 'package:cirrus/src/failure.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
@@ -11,9 +12,10 @@ import 'package:fpdart/fpdart.dart';
 /// of printing it, and a runner that keeps the command line instead of running it.
 ({TestLogger logger, TestRunner runner}) registerDoubles({
   bool failing = false,
+  int failsWith = 1,
 }) {
   final logger = TestLogger();
-  final runner = TestRunner(fails: failing);
+  final runner = TestRunner(fails: failing, failsWith: failsWith);
   getIt.registerSingleton<Logger>(logger);
   getIt.registerSingleton<CliRunner>(runner);
   return (logger: logger, runner: runner);
@@ -23,20 +25,23 @@ import 'package:fpdart/fpdart.dart';
 ({TestLogger logger, TestRunner runner}) withConfig(
   String yaml, {
   bool failing = false,
+  int failsWith = 1,
 }) {
-  final doubles = registerDoubles(failing: failing);
+  final doubles = registerDoubles(failing: failing, failsWith: failsWith);
   registerConfig(yaml);
   return doubles;
 }
 
 /// The config the command under test reads.
 void registerConfig(String yaml) {
-  getIt.registerSingleton<Either<String, Config>>(Right(Config.fromYaml(yaml)));
+  getIt.registerSingleton<Either<Failure, Config>>(
+    Right(Config.fromYaml(yaml)),
+  );
 }
 
 /// A config that could not be read, and why.
 void registerConfigFailure(String reason) {
-  getIt.registerSingleton<Either<String, Config>>(Left(reason));
+  getIt.registerSingleton<Either<Failure, Config>>(Left(Failure(reason)));
 }
 
 class TestLogger implements Logger {
@@ -70,18 +75,23 @@ class TestRunner implements CliRunner {
       commands.expand((command) => command.toArguments()).toList();
   final String simulatedOutput;
 
-  /// Behaves like a command that exited non-zero. cli_script throws in that case, which is how a
-  /// real failure reaches cirrus.
+  /// Behaves like a command that exited non-zero. `CliRunner` turns `cli_script`'s exception into
+  /// a `Failure` carrying the status, so that is what this throws - a double that threw the
+  /// underlying exception would be testing a conversion no caller ever sees.
   final bool fails;
 
-  TestRunner({String? simulatedOutput, this.fails = false})
+  /// The status the simulated command exits with, since propagating it is the whole point of
+  /// distinguishing one failure from another.
+  final int failsWith;
+
+  TestRunner({String? simulatedOutput, this.fails = false, this.failsWith = 1})
     : simulatedOutput = simulatedOutput ?? 'Simulated output';
 
   @override
   Future<void> run(String command) async {
     commands.add(command);
     if (fails) {
-      throw '$command failed with exit code 1.';
+      throw Failure.fromCommand('$command failed', failsWith);
     }
   }
 
@@ -89,7 +99,7 @@ class TestRunner implements CliRunner {
   Future<String> output(String command) async {
     commands.add(command);
     if (fails) {
-      throw '$command failed with exit code 1.';
+      throw Failure.fromCommand('$command failed', failsWith);
     }
     // Simulate output for testing purposes
     return simulatedOutput;

@@ -3,6 +3,7 @@ import 'package:fpdart/fpdart.dart';
 
 import 'init_template.dart';
 import '../../service_locator.dart';
+import '../../failure.dart';
 
 class InitCommand extends Command {
   final String configFileName;
@@ -16,11 +17,13 @@ class InitCommand extends Command {
   InitCommand(this.configFileName);
 
   @override
-  Either<String, String> run() {
+  Either<Failure, String> run() {
     final configFile = getIt.get<FileSystem>(param1: configFileName);
 
     if (configFile.exists()) {
-      return Left('$configFileName already exists in the current directory');
+      return Left(
+        Failure('$configFileName already exists in the current directory'),
+      );
     }
 
     configFile.write(configContent);

@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:fpdart/fpdart.dart';
 
 import '../../service_locator.dart';
+import 'package:cirrus/src/failure.dart';
 
 class GetLatest extends Command {
   @override
@@ -37,7 +38,7 @@ class GetLatest extends Command {
   }
 
   @override
-  Future<Either<String, String>> run() async {
+  Future<Either<Failure, String>> run() async {
     final packageId = getPackageId(argResults!['package'] as String);
     return switch (packageId) {
       Left() => packageId,
@@ -45,7 +46,7 @@ class GetLatest extends Command {
     };
   }
 
-  Either<String, String> getPackageId(String package) {
+  Either<Failure, String> getPackageId(String package) {
     if (package.startsWith('0Ho')) {
       return Right(package);
     }
@@ -56,7 +57,9 @@ class GetLatest extends Command {
 
     if (!projectFile.exists()) {
       return Left(
-        '$sfdxProjectJsonPath file not found in the current directory.',
+        Failure(
+          '$sfdxProjectJsonPath file not found in the current directory.',
+        ),
       );
     }
 
@@ -68,26 +71,30 @@ class GetLatest extends Command {
     // Look for the package name in the aliases.
     final aliases = projectData['packageAliases'];
     if (aliases == null) {
-      return Left('$package was not found in the packageAliases');
+      return Left(Failure('$package was not found in the packageAliases'));
     }
 
     final packageId = aliases[package];
     return packageId != null
         ? Right(packageId)
-        : Left('$package was not found in the packageAliases');
+        : Left(Failure('$package was not found in the packageAliases'));
   }
 
-  Future<Either<String, String>> getPackageInfo(String packageId) async {
+  Future<Either<Failure, String>> getPackageInfo(String packageId) async {
     final packageVersionListOutput = await runPackageVersionList(packageId);
     return switch (packageVersionListOutput) {
       Left() => Left(
-        'An error occurred when running the "sf package version list" command. Make sure that "$packageId" is a valid package Id.',
+        Failure(
+          'An error occurred when running the "sf package version list" command. Make sure that "$packageId" is a valid package Id.',
+        ),
       ),
       Right(:final value) => Right(getLatest(value)),
     };
   }
 
-  Future<Either<String, String>> runPackageVersionList(String packageId) async {
+  Future<Either<Failure, String>> runPackageVersionList(
+    String packageId,
+  ) async {
     final cliRunner = getIt.get<CliRunner>();
     try {
       final output = await cliRunner.output(
@@ -95,7 +102,7 @@ class GetLatest extends Command {
       );
       return Right(output);
     } catch (e) {
-      return Left(e.toString());
+      return Left(Failure(e.toString()));
     }
   }
 

@@ -10,6 +10,7 @@ import '../version.dart';
 import 'init/innit.dart';
 import 'org/org.dart';
 import 'run/run.dart';
+import '../failure.dart';
 
 class CirrusCommandRunner extends CommandRunner<dynamic> {
   CirrusCommandRunner()
@@ -55,7 +56,7 @@ Future<int> run(
       ..addCommand(RunCommand())
       ..addCommand(FlowCommand())
       ..addCommand(PackageCommand()),
-    (error, _) => 'Unexpected error: $error',
+    (error, _) => Failure('Unexpected error: $error'),
   );
 
   final logger = getIt.get<Logger>();
@@ -72,7 +73,7 @@ Future<int> run(
       try {
         final result = await value.run(arguments);
 
-        if (result is Either<String, String>) {
+        if (result is Either<Failure, String>) {
           switch (result) {
             case Right(:final value):
               // A command that finished with nothing to say finishes silently, which is what
@@ -85,11 +86,14 @@ Future<int> run(
           }
         }
       } on UsageException catch (e) {
-        final status = _failed(logger, e.message);
+        final status = _failed(logger, Failure(e.message));
         logger.log(value.usage);
         return status;
+      } on Failure catch (failure) {
+        // A command that shelled out and failed; its status came from the command itself.
+        return _failed(logger, failure);
       } catch (e) {
-        return _failed(logger, '$e');
+        return _failed(logger, Failure('$e'));
       }
 
     case Left(:final value):
@@ -101,20 +105,22 @@ Future<int> run(
 
 /// Reporting a failure and exiting non-zero are the same act: the message is what a person reads,
 /// and the status is the only part a build server can see. They are one function so that no path
-/// can do the first without the second.
-int _failed(Logger logger, String message) {
-  logger.error(message);
-  return 1;
+/// can do the first without the second, and the status comes from the failure rather than being
+/// chosen here - only the failure knows whether a command ran and said so, or cirrus never got
+/// that far.
+int _failed(Logger logger, Failure failure) {
+  logger.error(failure.message);
+  return failure.status;
 }
 
 /// Why the config file did not load, when the command being run is one that needs it. `init` and
 /// `--version` are answerable without a config, and never ask for one.
-String? _configErrorFacing(CommandRunner runner, List<String> arguments) {
+Failure? _configErrorFacing(CommandRunner runner, List<String> arguments) {
   final invoked = arguments.isEmpty ? null : runner.commands[arguments.first];
   if (invoked is! ReadsConfig ||
-      !getIt.isRegistered<Either<String, Config>>()) {
+      !getIt.isRegistered<Either<Failure, Config>>()) {
     return null;
   }
 
-  return getIt.get<Either<String, Config>>().getLeft().toNullable();
+  return getIt.get<Either<Failure, Config>>().getLeft().toNullable();
 }
