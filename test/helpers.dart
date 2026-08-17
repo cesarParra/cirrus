@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:chalkdart/chalk.dart';
-import 'package:cli_script/cli_script.dart';
 import 'package:cirrus/src/config.dart';
+import 'package:cirrus/src/failure.dart';
 import 'package:cirrus/src/service_locator.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
@@ -34,12 +34,14 @@ import 'package:fpdart/fpdart.dart';
 
 /// The config the command under test reads.
 void registerConfig(String yaml) {
-  getIt.registerSingleton<Either<String, Config>>(Right(Config.fromYaml(yaml)));
+  getIt.registerSingleton<Either<Failure, Config>>(
+    Right(Config.fromYaml(yaml)),
+  );
 }
 
 /// A config that could not be read, and why.
 void registerConfigFailure(String reason) {
-  getIt.registerSingleton<Either<String, Config>>(Left(reason));
+  getIt.registerSingleton<Either<Failure, Config>>(Left(Failure(reason)));
 }
 
 class TestLogger implements Logger {
@@ -73,8 +75,9 @@ class TestRunner implements CliRunner {
       commands.expand((command) => command.toArguments()).toList();
   final String simulatedOutput;
 
-  /// Behaves like a command that exited non-zero. cli_script throws in that case, which is how a
-  /// real failure reaches cirrus.
+  /// Behaves like a command that exited non-zero. `CliRunner` turns `cli_script`'s exception into
+  /// a `Failure` carrying the status, so that is what this throws - a double that threw the
+  /// underlying exception would be testing a conversion no caller ever sees.
   final bool fails;
 
   /// The status the simulated command exits with, since propagating it is the whole point of
@@ -88,7 +91,7 @@ class TestRunner implements CliRunner {
   Future<void> run(String command) async {
     commands.add(command);
     if (fails) {
-      throw ScriptException(command, failsWith);
+      throw Failure.fromCommand('$command failed', failsWith);
     }
   }
 
@@ -96,7 +99,7 @@ class TestRunner implements CliRunner {
   Future<String> output(String command) async {
     commands.add(command);
     if (fails) {
-      throw ScriptException(command, failsWith);
+      throw Failure.fromCommand('$command failed', failsWith);
     }
     // Simulate output for testing purposes
     return simulatedOutput;

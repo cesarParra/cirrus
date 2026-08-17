@@ -71,11 +71,10 @@ class Execution {
         await getIt.get<CliRunner>().run(
           [commandLine, ...arguments.map(cli.arg)].join(' '),
         );
-      } on cli.ScriptException catch (error) {
-        // The command ran and answered. Its status is what the caller wanted to know - a build
-        // server reading 1 for "your tests failed" and 1 for "your config is invalid" cannot tell
-        // them apart, and only this line knows which one this is.
-        return Left(Failure.fromCommand('$error', error.exitCode));
+      } on Failure catch (failure) {
+        // `CliRunner` has already turned the command's status into this; repeating the question
+        // here is what let three other callers answer it differently.
+        return Left(failure);
       } catch (error) {
         return Left(Failure('$error'));
       }

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:cirrus/src/commands/runner.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:cirrus/src/service_locator.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
@@ -52,9 +51,7 @@ void main() {
     });
 
     test('initializes a new cirrus.yaml file', () async {
-      getIt.registerSingleton<Either<String, Config>>(
-        Left('No config available'),
-      );
+      registerConfigFailure('No config available');
       getIt.registerSingleton<CliRunner>(TestRunner());
       getIt.registerFactoryParam<FileSystem, String, void>(
         (String path, _) => FileSystem.open(path),

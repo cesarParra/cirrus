@@ -86,14 +86,20 @@ class NamedFlowCommand extends Command {
         color: CliSpinnerColor.yellow,
       ).start();
 
-      final result = switch (step) {
-        CreateScratchFlowStep() => await runCreateScratch(
-          step.orgName,
-          setDefault: step.setDefault,
-        ),
-        RunCommandFlowStep() => await execution.step(step.commandName),
-      };
-      spinner.stop();
+      // Stopped whatever the step did: a spinner left running holds a timer that keeps the
+      // process alive, so a step that fails by throwing would hang rather than report.
+      final Either<Failure, void> result;
+      try {
+        result = switch (step) {
+          CreateScratchFlowStep() => await runCreateScratch(
+            step.orgName,
+            setDefault: step.setDefault,
+          ),
+          RunCommandFlowStep() => await execution.step(step.commandName),
+        };
+      } finally {
+        spinner.stop();
+      }
 
       if (result case Left(:final value)) {
         return Left(value);

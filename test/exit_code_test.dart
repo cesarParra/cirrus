@@ -128,4 +128,38 @@ commands:
       expect(await run('run hello'.toArguments(), configFileName: ""), 0);
     });
   });
+
+  group('a command cirrus shells out to itself', () {
+    test('answers with its own status from org create', () async {
+      withConfig(
+        """
+orgs:
+  dev:
+    definitionFile: config/dev.json
+""",
+        failing: true,
+        failsWith: 3,
+      );
+
+      expect(await run('org create dev'.toArguments(), configFileName: ""), 3);
+    });
+
+    test('answers with its own status from a createScratch step', () async {
+      withConfig(
+        """
+orgs:
+  dev:
+    definitionFile: config/dev.json
+flows:
+  setup:
+    steps:
+      - createScratch: dev
+""",
+        failing: true,
+        failsWith: 4,
+      );
+
+      expect(await run('flow setup'.toArguments(), configFileName: ""), 4);
+    });
+  });
 }

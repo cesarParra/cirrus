@@ -67,7 +67,7 @@ Future<int> run(
       // cause goes unmentioned. They fail here instead, once, before the arguments are parsed.
       final configError = _configErrorFacing(value, arguments);
       if (configError != null) {
-        return _failed(logger, Failure(configError));
+        return _failed(logger, configError);
       }
 
       try {
@@ -89,6 +89,9 @@ Future<int> run(
         final status = _failed(logger, Failure(e.message));
         logger.log(value.usage);
         return status;
+      } on Failure catch (failure) {
+        // A command that shelled out and failed; its status came from the command itself.
+        return _failed(logger, failure);
       } catch (e) {
         return _failed(logger, Failure('$e'));
       }
@@ -112,12 +115,12 @@ int _failed(Logger logger, Failure failure) {
 
 /// Why the config file did not load, when the command being run is one that needs it. `init` and
 /// `--version` are answerable without a config, and never ask for one.
-String? _configErrorFacing(CommandRunner runner, List<String> arguments) {
+Failure? _configErrorFacing(CommandRunner runner, List<String> arguments) {
   final invoked = arguments.isEmpty ? null : runner.commands[arguments.first];
   if (invoked is! ReadsConfig ||
-      !getIt.isRegistered<Either<String, Config>>()) {
+      !getIt.isRegistered<Either<Failure, Config>>()) {
     return null;
   }
 
-  return getIt.get<Either<String, Config>>().getLeft().toNullable();
+  return getIt.get<Either<Failure, Config>>().getLeft().toNullable();
 }
