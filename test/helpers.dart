@@ -190,15 +190,21 @@ extension JsonEncoding on Map<String, dynamic> {
   String encoded() => jsonEncode(this);
 }
 
-/// The doubles a `package create` test runs against: an `sfdx-project.json` it can read and write,
-/// registered where the command will look for it, and no config - `package` never reads one.
-FakeFileSystem registerSfdxProject({bool exists = true}) {
+/// The doubles a `package` test runs against: an `sfdx-project.json` it can read and write, the
+/// runner that records the command line instead of running it, and no config - `package` never
+/// reads one.
+({FakeFileSystem files, TestRunner runner}) registerSfdxProject({
+  bool exists = true,
+  String? simulatedOutput,
+}) {
   final fileSystem = FakeFileSystem('sfdx-project.json', exists);
+  final runner = TestRunner(simulatedOutput: simulatedOutput);
   registerConfigFailure('No config available');
+  getIt.registerSingleton<CliRunner>(runner);
   getIt.registerFactoryParam<FileSystem, String, void>(
     (String path, _) => fileSystem,
   );
-  return fileSystem;
+  return (files: fileSystem, runner: runner);
 }
 
 /// The published schema, as the tests that hold it and the parser together read it.

@@ -27,14 +27,12 @@ class FlowCommand extends Command implements ReadsConfig {
     }
   }
 
+  // Every subcommand comes out of the config file, so a config naming no flows leaves this a leaf
+  // - and `args` demands a `run()` from a leaf. Reached only then: with flows to offer, `args`
+  // reports the missing one itself and never calls this.
   @override
-  Either<Failure, String> run() {
-    if (subcommands.isEmpty) {
-      return Left(Failure('No flows are defined in $configFileName.'));
-    }
-
-    return Right('Available flows: ${subcommands.keys.join(', ')}');
-  }
+  Either<Failure, String> run() =>
+      Left(Failure('No flows are defined in $configFileName.'));
 }
 
 class NamedFlowCommand extends Command {

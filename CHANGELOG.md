@@ -50,6 +50,3 @@ Breaking changes to the command line, ahead of 1.0 freezing it.
 - Org, command and flow names are checked when the config file is read: a name is letters, digits,
   `-` and `_`, starting with a letter or a digit.
 
-## 1.0.0
-
-- Initial version.
