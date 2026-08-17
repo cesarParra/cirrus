@@ -34,10 +34,17 @@ class Create extends Command {
         'version-type',
         abbr: 't',
         help:
-            'The version type to increment the package to. `none` leaves the version number as '
-            'it is, for a project that lets Salesforce choose the build number.',
+            'Which part of the version number to increment. Every type leaves the build number as '
+            '`.NEXT`, which is Salesforce choosing it.',
         defaultsTo: 'minor',
-        allowed: ['major', 'minor', 'patch', 'none'],
+        allowed: ['major', 'minor', 'patch'],
+      )
+      ..addFlag(
+        'no-bump',
+        negatable: false,
+        help:
+            'Leave the version number as it is, for a project that lets Salesforce choose the '
+            'build number. Composes with --version-name.',
       )
       ..addFlag(
         'promote',
@@ -45,9 +52,10 @@ class Create extends Command {
         help: 'Whether to promote the package version.',
       )
       ..addOption(
-        'name',
+        'version-name',
         abbr: 'a',
-        help: 'The name of the new version to create.',
+        help:
+            'The name of the new version to create. `--version-name` in `sf`.',
       )
       ..addFlag(
         'code-coverage',
@@ -107,6 +115,16 @@ class Create extends Command {
 
   @override
   Future<Either<String, String>> run() async {
+    // `--version-type` says which part to increment and `--no-bump` says not to, so the two
+    // together are an instruction with no reading. Taking one and ignoring the other looks exactly
+    // like having honoured it, and the difference is a released version number.
+    if (argResults!.flag('no-bump') && argResults!.wasParsed('version-type')) {
+      return Left(
+        '--no-bump leaves the version number alone, so there is no --version-type to apply. '
+        'Ask for one or the other.',
+      );
+    }
+
     final sfdxProjectJsonPath = argResults!['sfdx-project-json-path'] as String;
     // Look for the "sfdx-project.json" file in the current directory
     final projectFile = getIt.get<FileSystem>(param1: sfdxProjectJsonPath);
@@ -137,16 +155,17 @@ class Create extends Command {
         final versionType = argResults!['version-type'] as String;
 
         // Increment the version name and the version number
-        final versionName = argResults?['name'] as String?;
+        final versionName = argResults?['version-name'] as String?;
         final packageVersion = dir.versionNumber;
 
         if (packageVersion == null || packageVersion.isEmpty) {
           return Left('No versionName found for package "$packageName".');
         }
 
-        // A `.NEXT` version number means Salesforce owns the build number, so `none` leaves the
-        // file as it was found.
-        final bumped = versionType == 'none'
+        // A `.NEXT` version number means Salesforce owns the build number, so `--no-bump` leaves
+        // the version number as it was found. A version name given alongside it is still written:
+        // whether to bump and what to call it are separate questions.
+        final bumped = argResults!.flag('no-bump')
             ? null
             : incrementVersion(packageVersion, versionType);
         final newVersion = bumped ?? packageVersion;
@@ -218,8 +237,8 @@ class Create extends Command {
           await cliRunner.run(promoteCommand.join(' '));
         }
 
-        // Under `none` the build number is Salesforce's to choose, so there is no version number
-        // here to name - the one that was created is in the output above.
+        // Under `--no-bump` the build number is Salesforce's to choose, so there is no version
+        // number here to name - the one that was created is in the output above.
         final created = bumped == null
             ? 'A new version of package "$packageName"'
             : 'Package "$packageName" version $newVersion';

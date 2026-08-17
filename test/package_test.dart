@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:cirrus/src/commands/package/get_latest.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:fpdart/fpdart.dart';
@@ -90,8 +88,7 @@ void main() {
       final before = fakeFileSystem.contents;
 
       await run(
-        'package create --package SamplePackage --version-type=none'
-            .toArguments(),
+        'package create --package SamplePackage --no-bump'.toArguments(),
         configFileName: "",
       );
 
@@ -106,6 +103,69 @@ void main() {
         contains('"versionNumber":"2.30.0.NEXT"'),
       );
       expect(runner.args, contains('--package=SamplePackage'));
+    });
+
+    test('refuses --version-type=none, which --no-bump answers', () async {
+      final fileSystem = registerSfdxProject();
+      final runner = TestRunner();
+      getIt.registerSingleton<CliRunner>(runner);
+      final before = fileSystem.contents;
+
+      final status = await run(
+        'package create --package SamplePackage --version-type=none'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(status, isNot(0));
+      expect(runner.commands, isEmpty);
+      expect(fileSystem.contents, before);
+    });
+
+    test('refuses --no-bump alongside an explicit --version-type', () async {
+      final fileSystem = registerSfdxProject();
+      final runner = TestRunner();
+      getIt.registerSingleton<CliRunner>(runner);
+      final before = fileSystem.contents;
+
+      final status = await run(
+        'package create --package SamplePackage --no-bump --version-type=major'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(status, isNot(0));
+      expect(runner.commands, isEmpty);
+      expect(fileSystem.contents, before);
+    });
+
+    test('refuses --name, which is now --version-name', () async {
+      final fileSystem = registerSfdxProject();
+      getIt.registerSingleton<CliRunner>(TestRunner());
+
+      final status = await run(
+        'package create --package SamplePackage --name="New Name"'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(status, isNot(0));
+      expect(fileSystem.contents, isNot(contains('New Name')));
+    });
+
+    test('writes a version name alongside --no-bump', () async {
+      final fileSystem = registerSfdxProject();
+      getIt.registerSingleton<CliRunner>(TestRunner());
+
+      await run(
+        'package create --package SamplePackage --no-bump --version-name="New Name"'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(fileSystem.contents, contains('"versionName": "New Name"'));
+      expect(fileSystem.contents, contains('"versionNumber": "2.30.0.NEXT"'));
     });
 
     test('Increments the minor version', () async {
@@ -214,7 +274,7 @@ void main() {
       getIt.registerSingleton<TestLogger>(logger);
 
       await run(
-        'package create --package SamplePackage --version-type=minor --name="New Name"'
+        'package create --package SamplePackage --version-type=minor --version-name="New Name"'
             .toArguments(),
         configFileName: "",
       );
@@ -645,39 +705,4 @@ void main() {
       });
     });
   });
-}
-
-class FakeFileSystem implements FileSystem {
-  final String path;
-  final bool _exists;
-  String contents = SfdxProjectJson(
-    packageDirectories: [
-      PackageDirectory(
-        package: 'SamplePackage',
-        versionNumber: '2.30.0.NEXT',
-        extra: {'path': 'packages/SamplePackage'},
-      ),
-    ],
-  ).toJson().encoded();
-
-  FakeFileSystem(this.path, this._exists);
-
-  @override
-  bool exists() => _exists;
-
-  @override
-  String readAsStringSync() {
-    return contents;
-  }
-
-  @override
-  void write(String content) {
-    contents = content;
-  }
-}
-
-extension on Map<String, dynamic> {
-  String encoded() {
-    return jsonEncode(this);
-  }
 }

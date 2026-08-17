@@ -8,6 +8,7 @@ import '../service_locator.dart';
 import '../config.dart';
 import '../version.dart';
 import 'init/innit.dart';
+import 'org/org.dart';
 import 'run/run.dart';
 
 class CirrusCommandRunner extends CommandRunner<dynamic> {
@@ -16,9 +17,11 @@ class CirrusCommandRunner extends CommandRunner<dynamic> {
         'cirrus',
         'A lean command-line interface tool for Salesforce development automation.',
       ) {
+    // No `-v`: `sf` spends it on `--target-dev-hub`, which is what it means on `package create`
+    // here too. An abbreviation that means one thing globally and another under a subcommand is
+    // the kind of trap that only shows up as a command that did something else.
     argParser.addFlag(
       'version',
-      abbr: 'v',
       negatable: false,
       help: 'Print the version number',
     );
@@ -48,6 +51,7 @@ Future<int> run(
   final runner = Either.tryCatch(
     () => CirrusCommandRunner()
       ..addCommand(InitCommand(configFileName))
+      ..addCommand(OrgCommand())
       ..addCommand(RunCommand())
       ..addCommand(FlowCommand())
       ..addCommand(PackageCommand()),

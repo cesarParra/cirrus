@@ -6,7 +6,7 @@ import 'package:fpdart/fpdart.dart';
 import '../../config.dart';
 import '../../execution.dart';
 import '../../service_locator.dart';
-import '../run/create_scratch.dart';
+import '../org/create_scratch.dart';
 
 class FlowCommand extends Command implements ReadsConfig {
   @override
@@ -50,6 +50,17 @@ class NamedFlowCommand extends Command {
 
   @override
   Future<Either<String, String>> run() async {
+    // A flow is a sequence somebody wrote down, so there is no one step for an argument to belong
+    // to. Saying so is the point: taking them and running the flow unchanged is indistinguishable
+    // from having honoured them.
+    final unread = argResults?.rest ?? const [];
+    if (unread.isNotEmpty) {
+      return Left(
+        "A flow takes no arguments, and '$name' was given "
+        "${unread.join(' ')}. Arguments go to one command: cirrus run <command> -- ...",
+      );
+    }
+
     final logger = getIt.get<Logger>();
     logger.log(
       'Running flow "${name.italic}"',

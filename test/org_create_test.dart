@@ -25,16 +25,13 @@ orgs:
     duration: 30
 """;
 
-  group('create_scratch', () {
+  group('org create', () {
     test('errors when any error occurs parsing the config file', () async {
       getIt.registerSingleton<Either<String, Config>>(
         Left('yaml parsing error'),
       );
 
-      await run(
-        'run create_scratch --name=test'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create test'.toArguments(), configFileName: "");
 
       expect(logger.errors, hasLength(1));
       expect(logger.errors.first, contains('yaml parsing error'));
@@ -44,10 +41,7 @@ orgs:
     test('runs the sf org scratch create command', () async {
       registerConfig(oneOrg);
 
-      await run(
-        'run create_scratch -n default'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create default'.toArguments(), configFileName: "");
 
       expect(logger.errors, isEmpty);
       expect(runner.args, contains('sf'));
@@ -59,10 +53,7 @@ orgs:
     test('provides the definition file', () async {
       registerConfig(oneOrg);
 
-      await run(
-        'run create_scratch -n default'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create default'.toArguments(), configFileName: "");
 
       expect(
         runner.args,
@@ -73,10 +64,7 @@ orgs:
     test('provides the duration if present in the config file', () async {
       registerConfig(oneOrg);
 
-      await run(
-        'run create_scratch -n default'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create default'.toArguments(), configFileName: "");
 
       expect(runner.args, contains('--duration-days=30'));
     });
@@ -84,10 +72,7 @@ orgs:
     test('is set as default by default', () async {
       registerConfig(oneOrg);
 
-      await run(
-        'run create_scratch -n default'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create default'.toArguments(), configFileName: "");
 
       expect(runner.args, contains('--set-default'));
     });
@@ -96,7 +81,7 @@ orgs:
       registerConfig(oneOrg);
 
       await run(
-        'run create_scratch -n default --no-set-default'.toArguments(),
+        'org create default --no-set-default'.toArguments(),
         configFileName: "",
       );
 
@@ -112,20 +97,29 @@ orgs:
     definitionFile: config/project-scratch-def.json
 """);
 
-        await run(
-          'run create_scratch -n default'.toArguments(),
-          configFileName: "",
-        );
+        await run('org create default'.toArguments(), configFileName: "");
 
         expect(runner.args, isNot(contains('--duration-days')));
       },
     );
 
+    test('creates one org at a time', () async {
+      registerConfig(oneOrg);
+
+      final status = await run(
+        'org create default ci'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(status, isNot(0));
+      expect(runner.commands, isEmpty);
+    });
+
     test('errors when the org is not defined in the config file', () async {
       registerConfig(oneOrg);
 
       await run(
-        'run create_scratch -n non_existent_org'.toArguments(),
+        'org create non_existent_org'.toArguments(),
         configFileName: "",
       );
 
@@ -143,10 +137,7 @@ orgs:
       test('is the name it is keyed by when it says nothing else', () async {
         registerConfig(oneOrg);
 
-        await run(
-          'run create_scratch -n default'.toArguments(),
-          configFileName: "",
-        );
+        await run('org create default'.toArguments(), configFileName: "");
 
         expect(runner.args, contains('--alias=default'));
       });
@@ -159,7 +150,7 @@ orgs:
     alias: scratch-org
 """);
 
-        await run('run create_scratch -n ci'.toArguments(), configFileName: "");
+        await run('org create ci'.toArguments(), configFileName: "");
 
         expect(runner.args, contains('--alias=scratch-org'));
         expect(runner.args, isNot(contains('--alias=ci')));
@@ -177,10 +168,7 @@ orgs:
     namespace: false
 """);
 
-          await run(
-            'run create_scratch -n subscriber'.toArguments(),
-            configFileName: "",
-          );
+          await run('org create subscriber'.toArguments(), configFileName: "");
 
           expect(logger.errors, isEmpty);
           expect(runner.args, contains('--no-namespace'));
@@ -195,10 +183,7 @@ orgs:
     wait: 25
 """);
 
-        await run(
-          'run create_scratch -n slow'.toArguments(),
-          configFileName: "",
-        );
+        await run('org create slow'.toArguments(), configFileName: "");
 
         expect(runner.args, contains('--wait=25'));
       });
@@ -206,10 +191,7 @@ orgs:
       test('is neither when the org asks for neither', () async {
         registerConfig(oneOrg);
 
-        await run(
-          'run create_scratch -n default'.toArguments(),
-          configFileName: "",
-        );
+        await run('org create default'.toArguments(), configFileName: "");
 
         expect(runner.args, isNot(contains('--no-namespace')));
         expect(runner.args, isNot(anyElement(startsWith('--wait'))));
@@ -226,10 +208,7 @@ orgs:
     alias: my org
 """);
 
-      await run(
-        'run create_scratch -n spaced'.toArguments(),
-        configFileName: "",
-      );
+      await run('org create spaced'.toArguments(), configFileName: "");
 
       expect(runner.args, contains('--alias=my org'));
       expect(runner.args, contains('--definition-file=config/dev def.json'));
@@ -246,7 +225,7 @@ orgs:
     default: true
 """);
 
-        await run('run create_scratch'.toArguments(), configFileName: "");
+        await run('org create'.toArguments(), configFileName: "");
 
         expect(logger.errors, isEmpty);
         expect(runner.args, contains('--definition-file=config/ci.json'));
@@ -255,7 +234,7 @@ orgs:
       test('says so when no org is marked', () async {
         registerConfig(oneOrg);
 
-        await run('run create_scratch'.toArguments(), configFileName: "");
+        await run('org create'.toArguments(), configFileName: "");
 
         expect(logger.errors, hasLength(1));
         expect(logger.errors.first, contains("default: true"));
