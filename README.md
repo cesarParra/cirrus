@@ -67,46 +67,40 @@ cirrus init
 
 This creates a `cirrus.yaml` file with a schema reference and commented examples to help you get started.
 
-#### `cirrus run`
+#### `cirrus org create`
 
-Executes predefined commands from your `cirrus.yaml` file.
-
-```bash
-cirrus run <subcommand> [options]
-```
-
-##### Built-in Subcommands
-
-###### `create_scratch`
-
-Creates a Salesforce scratch org based on definitions in your `cirrus.yaml` file.
+Creates a Salesforce scratch org from the definitions in your `cirrus.yaml` file.
 
 ```bash
-cirrus run create_scratch -n <org_name>
+cirrus org create <org_name>
 ```
+
+The org to create is named as an argument. Leave it out and cirrus creates the one marked
+`default: true`, so a project with one never names an org at all.
 
 Options:
-- `-n, --name`: The name of the scratch org definition to create. Defaults to the org marked
-  `default: true` in `cirrus.yaml`, so a project with one can leave it out entirely
-- `-d, --set-default` / `--no-set-default`: Set the created org as the CLI's default. On by default
+- `--set-default` / `--no-set-default`: Set the created org as the CLI's default. On by default
 
 The alias the org is created under comes from the org definition's `alias`, and defaults to the
 name it is keyed by.
 
 Examples:
 ```bash
-cirrus run create_scratch -n dev
-cirrus run create_scratch                  # the org marked `default: true`
-cirrus run create_scratch -n ci --no-set-default
+cirrus org create dev
+cirrus org create                    # the org marked `default: true`
+cirrus org create ci --no-set-default
 ```
 
-##### Custom Commands
+#### `cirrus run`
 
-Any command defined under `commands:` in your `cirrus.yaml` can be run:
+Runs a command defined under `commands:` in your `cirrus.yaml` file.
 
 ```bash
-cirrus run <custom_command_name>
+cirrus run <command_name>
 ```
+
+Every subcommand of `run` comes out of your config file, and none is built in - so no command you
+name can collide with one of cirrus's own.
 
 ##### Passing arguments through
 
@@ -130,6 +124,9 @@ cirrus flow <flow_name>
 
 Flows allow you to orchestrate multiple commands and actions in sequence. Each step in a flow is executed one after another, and the flow stops if any step fails.
 
+A flow takes no arguments of its own: there is no one step for them to belong to. Pass them to the
+command that wants them with `cirrus run <command> -- ...`.
+
 Example:
 ```bash
 cirrus flow setup
@@ -152,15 +149,16 @@ This command automates the package versioning process by:
 
 Options:
 - `-p, --package` (required): The name of the package to release, as defined in the sfdx-project.json file
-- `-t, --version-type`: The version type to increment (default: `minor`)
+- `-t, --version-type`: Which part of the version number to increment (default: `minor`). Every
+  type leaves the build number as `.NEXT`, which is Salesforce choosing it
   - `major`: Increments X.0.0 (for breaking changes)
   - `minor`: Increments 0.X.0 (for new features)
   - `patch`: Increments 0.0.X (for bug fixes)
-  - `none`: Leaves the version number alone, for a project whose `versionNumber` ends in `.NEXT`
-    and lets Salesforce choose the build number. `sfdx-project.json` is then left as it was found,
-    unless `--name` is given - that is a label, and setting it still writes the file
+- `--no-bump`: Leave the version number alone, for a project that lets Salesforce choose the build
+  number. `sfdx-project.json` is then left as it was found, unless `--version-name` is given - that
+  is a label, and setting it still writes the file
 - `--promote`: Whether to promote the package version after creation (default: false)
-- `-a, --name`: The name/label for the new version
+- `-a, --version-name`: The name/label for the new version
 - `-c, --code-coverage`: Calculate and store code coverage percentage
 - `-f, --definition-file`: Path to a definition file with required features and org preferences
 - `-k, --installation-key`: Installation key for key-protected packages
@@ -248,14 +246,20 @@ The shape changed with the format:
 | `{ type = "command", name = "deploy" }` | `- command: deploy` |
 | `set-default = true` | `setDefault: true` |
 
+### Names
+
+Orgs, commands and flows are keyed by a name you type on the command line, so a name is letters,
+digits, `-` and `_`, starting with a letter or a digit. Anything else is a config error, reported
+with the key that has it.
+
 ### Scratch org definitions
 
-Each org is keyed by the name you pass to `--name`, and takes:
+Each org is keyed by the name you pass to `cirrus org create`, and takes:
 
 - `definitionFile` (required): path to the Salesforce scratch org definition JSON file
 - `duration`: how many days the org lives, 1-30. Salesforce's own default applies without it
 - `alias`: the alias the org is created under. Defaults to the name it is keyed by
-- `default`: create this org when `cirrus run create_scratch` is given no `--name`. At most one org
+- `default`: create this org when `cirrus org create` is given no org to create. At most one org
   may say so
 - `namespace`: set `false` for an org that stands in for a subscriber's, which does not carry the
   package's namespace
@@ -275,7 +279,7 @@ orgs:
     alias: scratch-org
 ```
 
-With `default: true` set, `cirrus run create_scratch` needs no arguments at all.
+With `default: true` set, `cirrus org create` needs no arguments at all.
 
 ### Commands
 

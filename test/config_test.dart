@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cirrus/src/commands/init/init_template.dart';
 import 'package:cirrus/src/config.dart';
 import 'package:test/test.dart';
@@ -205,5 +208,69 @@ orgs:
 
   test('a section that is not a mapping says which section', () {
     expect(() => parse("commands: nope\n"), throwsA(contains('commands')));
+  });
+
+  group('a name the config makes up', () {
+    test('is a config error when it is not a legal command name', () {
+      expect(
+        () => parse("""
+commands:
+  "deploy everything": sf project deploy start
+"""),
+        throwsA(contains('deploy everything')),
+      );
+    });
+
+    test('is a config error when it could be read as an option', () {
+      expect(
+        () => parse("""
+commands:
+  --help: sf project deploy start
+"""),
+        throwsA(contains('--help')),
+      );
+    });
+
+    test('is a config error for a flow name too', () {
+      expect(
+        () => parse("""
+orgs:
+  dev:
+    definitionFile: config/dev.json
+flows:
+  "set up":
+    steps:
+      - createScratch: dev
+"""),
+        throwsA(contains('set up')),
+      );
+    });
+
+    test('leaves a legal name alone', () {
+      expect(
+        () => parse("""
+commands:
+  deploy-all_2: sf project deploy start
+"""),
+        returnsNormally,
+      );
+    });
+  });
+
+  test('the schema states the same rule the parser enforces', () {
+    // An editor reads the schema and cirrus reads the regex. Two statements of one rule drift
+    // apart silently: the editor blesses a name the parser then refuses, or the reverse.
+    final schema =
+        jsonDecode(File('schema/cirrus.schema.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final defined = schema[r'$defs']['name']['pattern'] as String;
+
+    expect(defined, nameOnACommandLine.pattern);
+
+    const reference = {r'$ref': r'#/$defs/name'};
+    for (final section in ['orgs', 'commands', 'flows']) {
+      final propertyNames = schema['properties'][section]['propertyNames'];
+      expect(propertyNames, reference, reason: '$section keys are typed too');
+    }
   });
 }

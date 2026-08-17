@@ -40,7 +40,7 @@ class ScratchOrgDefinition {
   /// definition says otherwise.
   final String alias;
 
-  /// The org `cirrus run create_scratch` creates when it is not told which one.
+  /// The org `cirrus org create` creates when it is not told which one.
   final bool isDefault;
 
   /// Whether the org carries the project's package namespace. A subscriber's org does not, and an
@@ -78,6 +78,15 @@ class ScratchOrgDefinition {
     };
   }
 }
+
+/// What a name in the config file has to look like to survive being typed. Commands and flows
+/// become subcommands and orgs become an argument, so a name with a space in it arrives as two
+/// words and a name starting with `-` arrives as an option. Rejected here, where the file and the
+/// key can be named, rather than by the argument parser, which knows neither.
+///
+/// `schema/cirrus.schema.json` states the same pattern so an editor says it first. A test pins the
+/// two together, since nothing else would notice them drifting apart.
+final nameOnACommandLine = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]*$');
 
 /// A field of the type it is declared as, or a sentence naming what is wrong with it. Without this
 /// a mistyped `duration: "30"` reaches the user as a Dart type error naming neither the field nor
@@ -311,6 +320,17 @@ class Config {
   /// through that its fourth step names nothing has already run the first three, and the first
   /// three are a scratch org and a deploy.
   void _checkNames() {
+    for (final (kind, name) in [
+      for (final command in commands) ('command', command.name),
+      for (final flow in flows) ('flow', flow.name),
+      for (final org in scratchOrgDefinitions) ('org', org.name),
+    ]) {
+      if (!nameOnACommandLine.hasMatch(name)) {
+        throw "'$name' cannot name a $kind: a name is letters, digits, '-' and '_', starting "
+            "with a letter or a digit, because it is typed on the command line.";
+      }
+    }
+
     for (final (owner, dependsOn) in [
       for (final command in commands) (command.name, command.dependsOn),
       for (final flow in flows) (flow.name, flow.dependsOn),

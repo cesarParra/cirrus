@@ -16,15 +16,15 @@ Future<Either<String, String>> runCreateScratch(
     case Right(:final value):
       final orgs = value.scratchOrgDefinitions;
 
-      // The org named on the command line, or the one the config marks as the default. Passing
-      // `-n` every time for the org a project almost always creates is what a default is for.
+      // The org named on the command line, or the one the config marks as the default. Naming the
+      // org a project almost always creates, every time, is what a default is for.
       if (orgDefinitionName == null) {
         final fallback = value.defaultOrg;
 
         if (fallback == null) {
           return Left(
-            "No org to create. Name one with --name, or mark an org 'default: true' in "
-            "$configFileName.\r\n${_available(orgs)}",
+            "No org to create. Name one - cirrus org create <org> - or mark an org "
+            "'default: true' in $configFileName.\r\n${_available(orgs)}",
           );
         }
 
