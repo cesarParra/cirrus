@@ -1,3 +1,10 @@
+## 0.9.0
+
+- The cause of a config that did not load is reported however the arguments reach the command. It
+  was found by looking at the first argument, which is the command only while nothing can precede
+  it - so the first global option taking a value would have silently turned the cause back into the
+  missing-subcommand symptom it exists to replace.
+
 ## 0.8.0
 
 - **The exit status says which kind of failure it was**, on every path that shells out - `run`,
