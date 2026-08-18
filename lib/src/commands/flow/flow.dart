@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:chalkdart/chalkstrings.dart';
 import 'package:cli_spin/cli_spin.dart';
@@ -78,10 +80,14 @@ class NamedFlowCommand extends Command {
     }
 
     for (final step in flow.steps) {
+      // A spinner animates by rewriting its own line, which only a terminal can do. Piped - a CI
+      // log, a file - every frame lands as another copy of the text instead, so hand `cli_spin`
+      // the terminal it needs and let it print the step once where there is none.
       final spinner = CliSpin(
         text: step.printable().yellow.bold,
         spinner: CliSpinners.dots,
         color: CliSpinnerColor.yellow,
+        isEnabled: stderr.hasTerminal,
       ).start();
 
       // Stopped whatever the step did: a spinner left running holds a timer that keeps the

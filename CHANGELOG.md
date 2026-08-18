@@ -1,3 +1,10 @@
+## 0.11.0
+
+- **A flow's step spinner animates only where a terminal is watching.** A spinner redraws by
+  rewriting its own line, which a pipe cannot do, so a CI log collected one copy of `Command
+  deploy.` per frame - hundreds of them per step, burying the output the step actually produced.
+  Piped, the step is printed once and the command's own output follows it.
+
 ## 0.10.0
 
 - **The schema moved to a host this project controls**, at
