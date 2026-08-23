@@ -73,10 +73,11 @@ class PackageVersions {
       return const None();
     }
 
-    final sorted = [...versions]..sort((a, b) {
-      final byDate = b.createdDate.compareTo(a.createdDate);
-      return byDate != 0 ? byDate : b.number.compareTo(a.number);
-    });
+    final sorted = [...versions]
+      ..sort((a, b) {
+        final byDate = b.createdDate.compareTo(a.createdDate);
+        return byDate != 0 ? byDate : b.number.compareTo(a.number);
+      });
 
     return Some(sorted.first);
   }

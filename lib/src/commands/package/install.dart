@@ -164,8 +164,7 @@ class Install extends Command {
           continue;
         }
 
-        final resolved =
-            dependencyPackage.startsWith('04t')
+        final resolved = dependencyPackage.startsWith('04t')
             ? dependencyPackage
             : aliases?[dependencyPackage] as String?;
         if (resolved == null) {

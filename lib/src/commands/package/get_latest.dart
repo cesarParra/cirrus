@@ -59,12 +59,12 @@ class GetLatest extends Command {
   String reported(Option<PackageVersion> latest) {
     final asJson = argResults!.flag('json');
     return switch (latest) {
-      None() => asJson
-          ? jsonEncode({'result': null})
-          : 'No versions found for the specified package.',
-      Some(value: final version) => asJson
-          ? jsonEncode({'result': version.toJson()})
-          : asGrid(version),
+      None() =>
+        asJson
+            ? jsonEncode({'result': null})
+            : 'No versions found for the specified package.',
+      Some(value: final version) =>
+        asJson ? jsonEncode({'result': version.toJson()}) : asGrid(version),
     };
   }
 
