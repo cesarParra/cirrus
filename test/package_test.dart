@@ -1,4 +1,5 @@
-import 'package:cirrus/src/commands/package/get_latest.dart';
+import 'dart:convert';
+import 'package:cirrus/src/commands/package/versions.dart';
 import 'package:cirrus/src/sfdx_project_json.dart';
 import 'package:test/test.dart';
 
@@ -452,6 +453,273 @@ void main() {
         expect(logger.errors, isEmpty);
         expect(runner.args, contains('04t1t0000000abcAAA'));
       });
+    });
+  });
+
+  group('package install', () {
+    PackageVersion aVersion({
+      int build = 1,
+      String id = '04t1t0000000abcAAA',
+      int major = 2,
+      String created = '2025-01-01 00:00',
+    }) => PackageVersion(
+      majorVersion: major,
+      minorVersion: 30,
+      patchVersion: 0,
+      buildNumber: build,
+      subscriberPackageVersionId: id,
+      name: "SamplePackage Version",
+      namespacePrefix: "",
+      description: "",
+      isPasswordProtected: false,
+      isReleased: false,
+      installUrl: "",
+      createdDate: created,
+    );
+
+    String listing(List<PackageVersion> versions) =>
+        '{"result": [${versions.map((v) => v.toJson().encoded()).join(',')}]}';
+
+    test(
+      'installs a version id as given, without asking which is latest',
+      () async {
+        final runner = registerSfdxProject().runner;
+
+        await run(
+          'package install --package 04t1t0000000abcAAA -o MyOrg'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, isEmpty);
+        expect(runner.commands, hasLength(1));
+        expect(runner.commands.first, contains('sf package install'));
+        expect(runner.args, contains('--package=04t1t0000000abcAAA'));
+        expect(runner.args, contains('--target-org=MyOrg'));
+      },
+    );
+
+    test('installs the newest version of a package named by alias', () async {
+      final (files: files, :runner) = registerSfdxProject(
+        simulatedOutput: listing([
+          aVersion(
+            build: 1,
+            id: '04t1t0000000oldAAA',
+            created: '2025-01-01 00:00',
+          ),
+          aVersion(
+            build: 9,
+            id: '04t1t0000000newAAA',
+            created: '2026-01-01 00:00',
+          ),
+        ]),
+      );
+      files.contents = SfdxProjectJson(
+        packageDirectories: [PackageDirectory(package: 'SamplePackage')],
+        packageAliases: {'SamplePackage': '0Ho1t0000000abcAAA'},
+      ).toJson().encoded();
+
+      await run(
+        'package install --package SamplePackage'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.args, contains('--package=04t1t0000000newAAA'));
+    });
+
+    /// A package refuses to install without them, so the order is the whole point.
+    test(
+      'installs the dependencies the project names before the package',
+      () async {
+        final (files: files, :runner) = registerSfdxProject(
+          simulatedOutput: listing([aVersion(id: '04t1t0000000abcAAA')]),
+        );
+        files.contents = jsonEncode({
+          'packageDirectories': [
+            {
+              'package': 'SamplePackage',
+              'dependencies': [
+                {'package': '04t1t0000000depAAA'},
+              ],
+            },
+          ],
+          'packageAliases': {'SamplePackage': '0Ho1t0000000abcAAA'},
+        });
+
+        await run(
+          'package install --package SamplePackage --with-dependencies'
+              .toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, isEmpty);
+        final installs = runner.commands
+            .where((command) => command.contains('sf package install'))
+            .toList();
+        expect(installs, hasLength(2));
+        expect(installs.first, contains('04t1t0000000depAAA'));
+        expect(installs.last, contains('04t1t0000000abcAAA'));
+      },
+    );
+
+    test('resolves a dependency named by alias rather than by id', () async {
+      final (files: files, :runner) = registerSfdxProject(
+        simulatedOutput: listing([aVersion(id: '04t1t0000000abcAAA')]),
+      );
+      files.contents = jsonEncode({
+        'packageDirectories': [
+          {
+            'package': 'SamplePackage',
+            'dependencies': [
+              {'package': 'OtherPackage'},
+            ],
+          },
+        ],
+        'packageAliases': {
+          'SamplePackage': '0Ho1t0000000abcAAA',
+          'OtherPackage': '04t1t0000000othAAA',
+        },
+      });
+
+      await run(
+        'package install --package SamplePackage --with-dependencies'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      expect(runner.commands.first, contains('04t1t0000000othAAA'));
+    });
+
+    test('says so when a named dependency resolves to nothing', () async {
+      final files = registerSfdxProject().files;
+      files.contents = jsonEncode({
+        'packageDirectories': [
+          {
+            'package': 'SamplePackage',
+            'dependencies': [
+              {'package': 'MissingPackage'},
+            ],
+          },
+        ],
+        'packageAliases': {'SamplePackage': '0Ho1t0000000abcAAA'},
+      });
+
+      await run(
+        'package install --package SamplePackage --with-dependencies'
+            .toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, hasLength(1));
+      expect(logger.errors.first, contains('MissingPackage'));
+    });
+
+    test('leaves dependencies alone unless asked for them', () async {
+      final (files: files, :runner) = registerSfdxProject(
+        simulatedOutput: listing([aVersion(id: '04t1t0000000abcAAA')]),
+      );
+      files.contents = jsonEncode({
+        'packageDirectories': [
+          {
+            'package': 'SamplePackage',
+            'dependencies': [
+              {'package': '04t1t0000000depAAA'},
+            ],
+          },
+        ],
+        'packageAliases': {'SamplePackage': '0Ho1t0000000abcAAA'},
+      });
+
+      await run(
+        'package install --package SamplePackage'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(
+        runner.commands.where((c) => c.contains('sf package install')),
+        hasLength(1),
+      );
+    });
+
+    /// A project that moves off calendar versioning makes its newest build the lowest-numbered
+    /// one, and the highest number then names a build from before the change.
+    test(
+      'installs the most recently built version, not the highest numbered',
+      () async {
+        final (files: files, :runner) = registerSfdxProject(
+          simulatedOutput: listing([
+            aVersion(
+              major: 2025,
+              build: 3,
+              id: '04t1t0000000oldAAA',
+              created: '2025-05-11 09:00',
+            ),
+            aVersion(
+              major: 0,
+              build: 28,
+              id: '04t1t0000000newAAA',
+              created: '2026-08-23 09:00',
+            ),
+          ]),
+        );
+        files.contents = SfdxProjectJson(
+          packageDirectories: [PackageDirectory(package: 'SamplePackage')],
+          packageAliases: {'SamplePackage': '0Ho1t0000000abcAAA'},
+        ).toJson().encoded();
+
+        await run(
+          'package install --package SamplePackage'.toArguments(),
+          configFileName: "",
+        );
+
+        expect(logger.errors, isEmpty);
+        expect(runner.args, contains('--package=04t1t0000000newAAA'));
+      },
+    );
+
+    test('says so when the package has no versions to install', () async {
+      final (files: files, :runner) = registerSfdxProject(
+        simulatedOutput: '{"result": []}',
+      );
+      files.contents = SfdxProjectJson(
+        packageDirectories: [PackageDirectory(package: 'SamplePackage')],
+        packageAliases: {'SamplePackage': '0Ho1t0000000abcAAA'},
+      ).toJson().encoded();
+
+      await run(
+        'package install --package SamplePackage'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, hasLength(1));
+      expect(logger.errors.first, contains('cirrus package create'));
+    });
+  });
+
+  group('package get_latest --json', () {
+    test('emits the version as JSON another command can read', () async {
+      final (files: files, :runner) = registerSfdxProject(
+        simulatedOutput:
+            '{"result": [${PackageVersion(majorVersion: 2, minorVersion: 30, patchVersion: 0, buildNumber: 7, subscriberPackageVersionId: "04t1t0000000abcAAA", name: "", namespacePrefix: "", description: "", isPasswordProtected: false, isReleased: true, installUrl: "").toJson().encoded()}]}',
+      );
+      files.contents = SfdxProjectJson(
+        packageDirectories: [PackageDirectory(package: 'SamplePackage')],
+        packageAliases: {'SamplePackage': '0Ho1t0000000abcAAA'},
+      ).toJson().encoded();
+
+      await run(
+        'package get_latest --package SamplePackage --json'.toArguments(),
+        configFileName: "",
+      );
+
+      expect(logger.errors, isEmpty);
+      final reported =
+          jsonDecode(logger.successes.last) as Map<String, dynamic>;
+      expect(
+        reported['result']['SubscriberPackageVersionId'],
+        equals('04t1t0000000abcAAA'),
+      );
     });
   });
 }

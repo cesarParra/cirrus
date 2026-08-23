@@ -4,8 +4,8 @@ import 'package:ansix/ansix.dart';
 import 'package:args/command_runner.dart';
 import 'package:fpdart/fpdart.dart';
 
-import '../../service_locator.dart';
 import 'package:cirrus/src/failure.dart';
+import 'versions.dart';
 
 class GetLatest extends Command {
   @override
@@ -15,8 +15,6 @@ class GetLatest extends Command {
   @override
   String get name => 'get_latest';
 
-  // TODO: If there are no versions, return some kind of message indicating so.
-  // TODO: --json flag support.
   // TODO: --released flag support to filter only released versions.
   GetLatest() {
     argParser
@@ -34,104 +32,43 @@ class GetLatest extends Command {
         help:
             'Path to the sfdx-project.json file. Defaults to looking for it in the current directory.',
         defaultsTo: 'sfdx-project.json',
+      )
+      ..addFlag(
+        'json',
+        negatable: false,
+        help:
+            'Emit the version as JSON, so that another command can read it rather than a person.',
       );
   }
 
   @override
   Future<Either<Failure, String>> run() async {
-    final packageId = getPackageId(argResults!['package'] as String);
+    final packageId = PackageVersions.idFor(
+      argResults!['package'] as String,
+      argResults!['sfdx-project-json-path'] as String,
+    );
+
     return switch (packageId) {
-      Left() => packageId,
-      Right(:final value) => getPackageInfo(value),
+      Left(:final value) => Left(value),
+      Right(:final value) => (await PackageVersions.of(
+        value,
+      )).map((versions) => reported(PackageVersions.latestOf(versions))),
     };
   }
 
-  Either<Failure, String> getPackageId(String package) {
-    if (package.startsWith('0Ho')) {
-      return Right(package);
-    }
-
-    final sfdxProjectJsonPath = argResults!['sfdx-project-json-path'] as String;
-    // Look for the "sfdx-project.json" file in the current directory
-    final projectFile = getIt.get<FileSystem>(param1: sfdxProjectJsonPath);
-
-    if (!projectFile.exists()) {
-      return Left(
-        Failure(
-          '$sfdxProjectJsonPath file not found in the current directory.',
-        ),
-      );
-    }
-
-    // Parse the project file and get the package information
-    final projectContent = projectFile.readAsStringSync();
-    // Parse the JSON content
-    final projectData = jsonDecode(projectContent) as Map<String, dynamic>;
-
-    // Look for the package name in the aliases.
-    final aliases = projectData['packageAliases'];
-    if (aliases == null) {
-      return Left(Failure('$package was not found in the packageAliases'));
-    }
-
-    final packageId = aliases[package];
-    return packageId != null
-        ? Right(packageId)
-        : Left(Failure('$package was not found in the packageAliases'));
-  }
-
-  Future<Either<Failure, String>> getPackageInfo(String packageId) async {
-    final packageVersionListOutput = await runPackageVersionList(packageId);
-    return switch (packageVersionListOutput) {
-      Left() => Left(
-        Failure(
-          'An error occurred when running the "sf package version list" command. Make sure that "$packageId" is a valid package Id.',
-        ),
-      ),
-      Right(:final value) => Right(getLatest(value)),
+  String reported(Option<PackageVersion> latest) {
+    final asJson = argResults!.flag('json');
+    return switch (latest) {
+      None() =>
+        asJson
+            ? jsonEncode({'result': null})
+            : 'No versions found for the specified package.',
+      Some(value: final version) =>
+        asJson ? jsonEncode({'result': version.toJson()}) : asGrid(version),
     };
   }
 
-  Future<Either<Failure, String>> runPackageVersionList(
-    String packageId,
-  ) async {
-    final cliRunner = getIt.get<CliRunner>();
-    try {
-      final output = await cliRunner.output(
-        'sf package version list -p $packageId --json',
-      );
-      return Right(output);
-    } catch (e) {
-      return Left(Failure(e.toString()));
-    }
-  }
-
-  String getLatest(String serializedVersions) {
-    final decodedPayload = jsonDecode(serializedVersions);
-    final versions = (decodedPayload['result'] as List<dynamic>)
-        .map((e) => PackageVersion.fromJson(e as Map<String, dynamic>))
-        .toList();
-
-    // Sort to get the latest version. Versions are sorted by major, minor, patch, and build number,
-    // where priority is given to major, then minor, then patch, and finally build number.
-    versions.sort((a, b) {
-      if (a.majorVersion != b.majorVersion) {
-        return b.majorVersion.compareTo(a.majorVersion);
-      } else if (a.minorVersion != b.minorVersion) {
-        return b.minorVersion.compareTo(a.minorVersion);
-      } else if (a.patchVersion != b.patchVersion) {
-        return b.patchVersion.compareTo(a.patchVersion);
-      } else {
-        return b.buildNumber.compareTo(a.buildNumber);
-      }
-    });
-
-    if (versions.isEmpty) {
-      return 'No versions found for the specified package.';
-    }
-
-    final latestVersion = versions.first;
-
+  String asGrid(PackageVersion latestVersion) {
     final List<List<Object?>> rows = <List<Object?>>[
       <Object?>[
         'Major Version',
@@ -174,65 +111,5 @@ class GetLatest extends Command {
     );
 
     return verticalGrid.formattedText;
-  }
-}
-
-class PackageVersion {
-  int majorVersion;
-  int minorVersion;
-  int patchVersion;
-  int buildNumber;
-  String subscriberPackageVersionId;
-  String name;
-  String namespacePrefix;
-  String description;
-  bool isPasswordProtected;
-  bool isReleased;
-  String installUrl;
-
-  PackageVersion({
-    required this.majorVersion,
-    required this.minorVersion,
-    required this.patchVersion,
-    required this.buildNumber,
-    required this.subscriberPackageVersionId,
-    required this.name,
-    required this.namespacePrefix,
-    required this.description,
-    required this.isPasswordProtected,
-    required this.isReleased,
-    required this.installUrl,
-  });
-
-  factory PackageVersion.fromJson(Map<String, dynamic> json) {
-    return PackageVersion(
-      majorVersion: json['MajorVersion'] as int,
-      minorVersion: json['MinorVersion'] as int,
-      patchVersion: json['PatchVersion'] as int,
-      buildNumber: json['BuildNumber'] as int,
-      subscriberPackageVersionId: json['SubscriberPackageVersionId'] as String,
-      name: json['Name'] as String,
-      namespacePrefix: json['NamespacePrefix'] as String,
-      description: json['Description'] as String,
-      isPasswordProtected: json['IsPasswordProtected'] as bool,
-      isReleased: json['IsReleased'] as bool,
-      installUrl: json['InstallUrl'] as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'MajorVersion': majorVersion,
-      'MinorVersion': minorVersion,
-      'PatchVersion': patchVersion,
-      'BuildNumber': buildNumber,
-      'SubscriberPackageVersionId': subscriberPackageVersionId,
-      'Name': name,
-      'NamespacePrefix': namespacePrefix,
-      'Description': description,
-      'IsPasswordProtected': isPasswordProtected,
-      'IsReleased': isReleased,
-      'InstallUrl': installUrl,
-    };
   }
 }
