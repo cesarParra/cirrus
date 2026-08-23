@@ -114,6 +114,30 @@ The arguments reach the command that was named and nothing else - a prerequisite
 it runs as written. This is what lets one `e2e` command serve a pull-request build that runs one
 browser and a merge build that runs them all.
 
+#### `cirrus package install`
+
+Installs a package version into an org - the counterpart to `package create`.
+
+```bash
+cirrus package install -p Prose -o MyOrg --with-dependencies
+```
+
+Named by a `04t` subscriber package version id, that version is installed. Named by a package id or
+an alias from `sfdx-project.json`, the latest version of it is - the same answer `package
+get_latest` gives, because both ask the same code.
+
+`--with-dependencies` installs what the package's directory names under `dependencies` first, in
+the order written, since a package refuses to install without them. A dependency may be a version
+id or an alias.
+
+- `-p, --package`: the package or version to install (required)
+- `-o, --target-org`: the org to install into; the CLI's default is used without it
+- `--with-dependencies`: install the project's declared dependencies first
+- `-k, --installation-key`: for a key-protected package
+- `--security-type`: `AllUsers` or `AdminsOnly`
+- `-w, --wait`: minutes to wait, 30 by default
+- `-j, --sfdx-project-json-path`: where to read the project file from
+
 #### `cirrus flow`
 
 Executes predefined flows from your `cirrus.yaml` file.

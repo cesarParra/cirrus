@@ -1,3 +1,15 @@
+## Unreleased
+
+- **`cirrus package install`.** Cirrus could build a package version and then not put one
+  anywhere, so every project that needed the other half wrote the same script: resolve the newest
+  version, install the dependencies the project declares, then install it. That is now a verb.
+  Named by an alias or a package id it installs the latest version; named by a `04t` it installs
+  that one; `--with-dependencies` installs what `sfdx-project.json` declares first.
+- **`package get_latest --json`.** It already knew which version was latest and could only say so
+  to a person, so anything that wanted to act on the answer had to ask Salesforce again itself.
+  Both commands now resolve a version through the same code, so they cannot disagree about which
+  one is newest.
+
 ## 0.11.0
 
 - **A flow's step spinner animates only where a terminal is watching.** A spinner redraws by
