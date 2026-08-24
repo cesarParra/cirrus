@@ -1,4 +1,4 @@
-## Unreleased
+## 0.12.0
 
 - **`cirrus package install`.** Cirrus could build a package version and then not put one
   anywhere, so every project that needed the other half wrote the same script: resolve the newest
