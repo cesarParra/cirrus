@@ -1,3 +1,10 @@
+## 0.12.1
+
+- **`cirrus --version` reports the version it actually is.** 0.12.0 shipped saying 0.11.0: the
+  version lives in three files, `scripts/bump-version.js` writes all three, and 0.12.0 was bumped
+  by hand in two of them. The release now refuses unless all three agree, so a binary cannot ship
+  misreporting itself again.
+
 ## 0.12.0
 
 - **`cirrus package install`.** Cirrus could build a package version and then not put one
