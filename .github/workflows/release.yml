@@ -25,6 +25,17 @@ jobs:
         run: |
           # Get the version from pubspec.yaml
           VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: //')
+
+          # The version lives in two files and this job only reads one: the tag and the release
+          # come from pubspec.yaml, while `npm publish` takes package.json's. Left to drift, the
+          # tag says one thing and npm is asked to republish a version it already has - and that
+          # only surfaces in the last job, after the release is already cut. Fail here instead.
+          NPM_VERSION=$(jq -r .version package.json)
+          if [ "$VERSION" != "$NPM_VERSION" ]; then
+            echo "::error::pubspec.yaml is $VERSION and package.json is $NPM_VERSION. They name the same release, so they have to agree."
+            exit 1
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           # Check if a tag with this version already exists
