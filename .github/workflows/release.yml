@@ -26,13 +26,16 @@ jobs:
           # Get the version from pubspec.yaml
           VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: //')
 
-          # The version lives in two files and this job only reads one: the tag and the release
-          # come from pubspec.yaml, while `npm publish` takes package.json's. Left to drift, the
-          # tag says one thing and npm is asked to republish a version it already has - and that
-          # only surfaces in the last job, after the release is already cut. Fail here instead.
+          # The version lives in three files and this job reads one. The tag and the release come
+          # from pubspec.yaml, `npm publish` takes package.json's, and `cirrus --version` reports
+          # version.dart's - so drift ships a binary that misreports itself, or asks npm to
+          # republish a version it already has, and the latter only surfaces in the last job,
+          # after the release is cut. `scripts/bump-version.js` writes all three; this refuses the
+          # release when something has written them apart.
           NPM_VERSION=$(jq -r .version package.json)
-          if [ "$VERSION" != "$NPM_VERSION" ]; then
-            echo "::error::pubspec.yaml is $VERSION and package.json is $NPM_VERSION. They name the same release, so they have to agree."
+          DART_VERSION=$(sed -n "s/^const String appVersion = '\(.*\)';$/\1/p" lib/src/version.dart)
+          if [ "$VERSION" != "$NPM_VERSION" ] || [ "$VERSION" != "$DART_VERSION" ]; then
+            echo "::error::pubspec.yaml is $VERSION, package.json is $NPM_VERSION, version.dart is $DART_VERSION. They name one release, so they have to agree - run 'node scripts/bump-version.js <version>'."
             exit 1
           fi
 
