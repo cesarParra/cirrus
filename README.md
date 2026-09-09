@@ -222,6 +222,76 @@ Options:
 - `-p, --package` (required): The name of the package to get the version for. It must either be a package Id (starts with 0Ho), or the alias of the package Id as defined in the sfdx-project.json.
 - `-j, --sfdx-project-json-path`: Path to the sfdx-project.json file (default: current directory)
 
+#### `cirrus plan execute`
+
+Runs a published plan against an org and narrates it as JSON, for a server driving cirrus as a
+subprocess.
+
+```bash
+cirrus plan execute --plan plan.json < config.json
+```
+
+Options:
+- `-p, --plan` (required): Path to the plan artifact to run.
+
+The plan says what to install. It carries no secrets, so it can be committed, diffed between
+versions, or pasted into a support ticket.
+
+```json
+{
+  "schemaVersion": 1,
+  "product": "prose",
+  "version": "0.1.0",
+  "title": "Prose",
+  "steps": [
+    {
+      "kind": "installPackage",
+      "name": "Expression",
+      "packageVersionId": "04tRb000005Y0txIAC"
+    },
+    {
+      "kind": "installPackage",
+      "name": "Prose",
+      "packageVersionId": "04tPl000000SgqjIAC",
+      "requiresInstallationKey": true
+    }
+  ]
+}
+```
+
+Everything secret arrives on stdin instead, as one JSON line: not argv, which anything running as
+the same user can read out of `ps`, and not the environment, which leaks into child processes and
+crash dumps. Installation keys are addressed by step index, the same way the plan addresses its
+steps.
+
+```json
+{
+  "instanceUrl": "https://example.my.salesforce.com",
+  "accessToken": "00D...",
+  "apiVersion": "67.0",
+  "installationKeys": { "1": "key for step 1" }
+}
+```
+
+Events come out on stdout, one JSON object per line, and nothing else is written to stdout — so a
+caller parses lines without filtering.
+
+```
+{"event":"started","protocol":1,"product":"prose","version":"0.1.0","steps":2}
+{"event":"step.started","step":0,"name":"Expression"}
+{"event":"log","step":0,"message":"PackageInstallRequest 0Hf..."}
+{"event":"step.progress","step":0,"message":"IN_PROGRESS"}
+{"event":"step.finished","step":0,"status":"ok","seconds":27}
+{"event":"step.started","step":1,"name":"Prose"}
+{"event":"step.failed","step":1,"message":"Prose failed to install.","detail":{}}
+{"event":"finished","status":"failed"}
+```
+
+A step that fails stops the plan where it stands. Nothing is rolled back and nothing is resumed:
+what did install stays installed, and the events are the record of how far it got. The exit status
+is `0` when every step finished, `1` when one ran and failed, and `2` when cirrus never started —
+so a caller can tell "the org was touched" from "the plan was unreadable".
+
 ## Exit status
 
 The status is the only part of a run a build server can read, so it says which kind of failure it
