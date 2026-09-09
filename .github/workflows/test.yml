@@ -187,6 +187,38 @@ jobs:
           # Not 1: a command that chose 3 is answered with 3, through `run` and through a flow.
           exits_with 3 "$binary" run three
 
+          # `plan execute` promises stdout carries newline-delimited JSON and nothing else. Only
+          # here is that read off the compiled binary, where stdin and exit statuses can differ.
+          cat > plan.json <<'PLAN'
+          {
+            "schemaVersion": 1,
+            "product": "smoke",
+            "version": "0.0.1",
+            "steps": [{"kind": "installPackage", "name": "Nothing", "packageVersionId": "04t0"}]
+          }
+          PLAN
+
+          # An org that cannot be reached is a step that failed, not a cirrus that could not start.
+          plan_status=0
+          echo '{"instanceUrl":"https://cirrus-no-such-org.invalid","accessToken":"t"}' \
+            | "$binary" plan execute --plan plan.json > events.ndjson 2> plan.err || plan_status=$?
+
+          test "$plan_status" -eq 1
+          grep -q '"event":"finished","status":"failed"' events.ndjson
+
+          # Every line: the stray write that breaks a reader is the one no assertion looked for.
+          while read -r line; do
+            printf '%s' "$line" | python3 -c 'import json,sys; json.loads(sys.stdin.read())'
+          done < events.ndjson
+
+          # Never started, which a caller has to tell from a step that ran and failed.
+          plan_status=0
+          echo 'not json' | "$binary" plan execute --plan plan.json > never.ndjson 2>/dev/null \
+            || plan_status=$?
+
+          test "$plan_status" -eq 2
+          test ! -s never.ndjson
+
           # The paths that shell out to `sf` answer with its status too, and this is the only layer
           # that can say so: a unit test replaces the runner with a double, so it agrees with
           # whatever the double was told - which is how four of these once returned 2 while the

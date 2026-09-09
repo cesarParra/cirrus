@@ -24,7 +24,8 @@ class StdIOLogger implements Logger {
   @override
   error(String errorMessage) {
     stderr.writeln(errorMessage.red.bold);
-    log("");
+    // On stderr, not through `log`: `plan execute` writes its protocol to stdout and nothing else.
+    stderr.writeln();
   }
 
   @override
