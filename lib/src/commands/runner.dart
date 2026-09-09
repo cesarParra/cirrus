@@ -9,6 +9,7 @@ import '../config.dart';
 import '../version.dart';
 import 'init/innit.dart';
 import 'org/org.dart';
+import 'plan/plan.dart';
 import 'run/run.dart';
 import '../failure.dart';
 
@@ -55,7 +56,8 @@ Future<int> run(
       ..addCommand(OrgCommand())
       ..addCommand(RunCommand())
       ..addCommand(FlowCommand())
-      ..addCommand(PackageCommand()),
+      ..addCommand(PackageCommand())
+      ..addCommand(PlanCommand()),
     (error, _) => Failure('Unexpected error: $error'),
   );
 
