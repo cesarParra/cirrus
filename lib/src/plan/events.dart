@@ -32,6 +32,15 @@ class Events {
   void log(int step, String message) =>
       _write({'event': 'log', 'step': step, 'message': message});
 
+  /// `ok` to a reader that has not heard of it, which is right for a step that did not run.
+  void stepSkipped(int step, String message, int seconds) => _write({
+    'event': 'step.finished',
+    'step': step,
+    'status': 'skipped',
+    'message': message,
+    'seconds': seconds,
+  });
+
   void stepFinished(int step, int seconds) => _write({
     'event': 'step.finished',
     'step': step,

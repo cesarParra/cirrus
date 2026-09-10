@@ -287,6 +287,19 @@ caller parses lines without filtering.
 {"event":"finished","status":"failed"}
 ```
 
+A step verifies before it acts. `installPackage` asks the org what it already has of the package,
+and skips when that is the asked-for version or newer — so re-running a plan against an org that is
+already up to date installs nothing and succeeds, and retrying a partial install re-runs only what
+did not land.
+
+```
+{"event":"step.finished","step":1,"status":"skipped","message":"Prose 0.1.0.33 is already installed.","seconds":1}
+```
+
+`skipped` rides on `step.finished` rather than an event of its own, so a caller written against
+protocol 1 reads it as a step that finished. A check that cannot answer installs anyway: a broken
+query is not evidence a package is absent.
+
 A step that fails stops the plan where it stands. Nothing is rolled back and nothing is resumed:
 what did install stays installed, and the events are the record of how far it got. The exit status
 is `0` when every step finished, `1` when one ran and failed, and `2` when cirrus never started —
