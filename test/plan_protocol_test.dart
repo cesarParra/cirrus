@@ -39,7 +39,7 @@ void main() {
   "schemaVersion": 1,
   "product": "prose",
   "version": "0.1.0",
-  "steps": [{"kind": "installPackage", "name": "Prose", "packageVersionId": "04t1"}]
+  "steps": [{"kind": "installPackage", "name": "Prose", "packageVersionId": "04tRb000005Y0txIAC"}]
 }
 ''';
 
