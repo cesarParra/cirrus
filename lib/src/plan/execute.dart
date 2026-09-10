@@ -76,7 +76,7 @@ class PlanExecution {
       );
     }
 
-    final present = await _installedVersion(step, index);
+    final present = await _installedVersion(step, index, key);
     if (present != null) {
       return _Skipped('${step.name} $present is already installed.');
     }
@@ -113,10 +113,29 @@ class PlanExecution {
   Future<PackageVersion?> _installedVersion(
     InstallPackage step,
     int index,
+    String? key,
   ) async {
+    try {
+      return await _lookUpInstalled(step, index, key);
+    } catch (error) {
+      events.log(index, 'Could not check what is installed: $error');
+      return null;
+    }
+  }
+
+  Future<PackageVersion?> _lookUpInstalled(
+    InstallPackage step,
+    int index,
+    String? key,
+  ) async {
+    // A key-protected version answers nothing without its key in the filter.
+    final protectedBy = key == null || key.isEmpty
+        ? ''
+        : " AND InstallationKey = '${_soql(key)}'";
+
     final asked = await _one(
       'SELECT SubscriberPackageId, MajorVersion, MinorVersion, PatchVersion, BuildNumber '
-      "FROM SubscriberPackageVersion WHERE Id = '${step.packageVersionId}'",
+      "FROM SubscriberPackageVersion WHERE Id = '${step.packageVersionId}'$protectedBy",
     );
 
     final wanted = PackageVersion.from(asked);
@@ -190,6 +209,9 @@ class PlanExecution {
       {'status': last},
     );
   }
+
+  static String _soql(String literal) =>
+      literal.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
 
   String get _tooling => '/services/data/v${config.apiVersion}/tooling';
 }

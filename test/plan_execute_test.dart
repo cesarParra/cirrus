@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cirrus/src/plan/artifact.dart';
 import 'package:cirrus/src/plan/events.dart';
@@ -16,6 +17,9 @@ class FakeOrg implements Org {
   List<Map<String, dynamic>> installed;
   (int, int, int, int)? wanted;
 
+  int? queryStatus;
+  bool queryThrows = false;
+
   OrgResponse Function(Map<String, dynamic> body) onPost;
 
   /// The statuses a poll walks through, one per call, the last repeating.
@@ -28,6 +32,8 @@ class FakeOrg implements Org {
     this.errors,
     this.installed = const [],
     this.wanted,
+    this.queryStatus,
+    this.queryThrows = false,
   }) : onPost =
            onPost ?? ((_) => const OrgResponse(201, {'id': '0Hf000000000001'}));
 
@@ -41,7 +47,11 @@ class FakeOrg implements Org {
   Future<OrgResponse> get(String path) async {
     if (path.contains('/query?q=')) {
       queries.add(path);
-      if (path.contains('SubscriberPackageVersion+WHERE')) {
+      if (queryThrows) throw const SocketException('Connection reset by peer');
+      if (queryStatus != null) return OrgResponse(queryStatus!, const {});
+      if (Uri.decodeQueryComponent(
+        path,
+      ).contains('FROM SubscriberPackageVersion')) {
         final version = wanted;
         return OrgResponse(200, {
           'records': version == null
@@ -129,6 +139,33 @@ void main() {
       expect(parsed.getLeft().toNullable()?.message, contains('runApex'));
     });
 
+    test('refuses a packageVersionId that is not one', () {
+      for (final id in [
+        "04tXXX' OR Id != '",
+        'not-an-id',
+        '04t',
+        '033Pl00000HGd6rIAD',
+      ]) {
+        final parsed = Plan.parse(
+          '{"schemaVersion": 1, "steps": [{"kind": "installPackage", '
+          '"name": "Prose", "packageVersionId": "$id"}]}',
+        );
+        expect(
+          parsed.getLeft().toNullable()?.message,
+          contains('not a subscriber package version id'),
+          reason: '$id should be refused',
+        );
+      }
+    });
+
+    test('takes a real subscriber package version id', () {
+      final parsed = Plan.parse(
+        '{"schemaVersion": 1, "steps": [{"kind": "installPackage", '
+        '"name": "Prose", "packageVersionId": "04tPl000000SgqjIAC"}]}',
+      );
+      expect(parsed.getRight().toNullable()?.steps, hasLength(1));
+    });
+
     test('refuses an installPackage with no package', () {
       final parsed = Plan.parse(
         '{"schemaVersion": 1, "steps": [{"kind": "installPackage", "name": "Prose"}]}',
@@ -212,7 +249,7 @@ void main() {
       await execute(
         planOf(
           '{"schemaVersion": 1, "steps": [{"kind": "installPackage", "name": "Prose", '
-          '"packageVersionId": "04t1", "requiresInstallationKey": true}]}',
+          '"packageVersionId": "04tRb000005Y0txIAC", "requiresInstallationKey": true}]}',
         ),
         org,
         config: configOf(keys: {0: 'sekrit'}),
@@ -226,7 +263,7 @@ void main() {
       final (events, ok) = await execute(
         planOf(
           '{"schemaVersion": 1, "steps": [{"kind": "installPackage", "name": "Prose", '
-          '"packageVersionId": "04t1", "requiresInstallationKey": true}]}',
+          '"packageVersionId": "04tRb000005Y0txIAC", "requiresInstallationKey": true}]}',
         ),
         org,
       );
@@ -247,8 +284,8 @@ void main() {
       final (events, ok) = await execute(
         planOf(
           '{"schemaVersion": 1, "steps": ['
-          '{"kind": "installPackage", "name": "Prose", "packageVersionId": "04t1"},'
-          '{"kind": "installPackage", "name": "Expression", "packageVersionId": "04t2"}]}',
+          '{"kind": "installPackage", "name": "Prose", "packageVersionId": "04tRb000005Y0txIAC"},'
+          '{"kind": "installPackage", "name": "Expression", "packageVersionId": "04tPl000000SgqjIAC"}]}',
         ),
         org,
       );
@@ -363,13 +400,61 @@ void main() {
       );
     });
 
-    test('installs when the check cannot answer', () async {
+    test('installs when the org answers that nothing is installed', () async {
       final org = FakeOrg(installed: const [], wanted: null);
 
       final (_, ok) = await execute(planOf(onePackage), org);
 
       expect(ok, isTrue);
       expect(org.posts, hasLength(1));
+    });
+
+    test('installs when the check is refused', () async {
+      final org = FakeOrg(queryStatus: 400, wanted: (0, 1, 0, 33));
+
+      final (_, ok) = await execute(planOf(onePackage), org);
+
+      expect(ok, isTrue);
+      expect(
+        org.posts,
+        hasLength(1),
+        reason: 'a refused query is not a missing package',
+      );
+    });
+
+    test(
+      'installs when the check throws, rather than failing the plan',
+      () async {
+        final org = FakeOrg(queryThrows: true, wanted: (0, 1, 0, 33));
+
+        final (events, ok) = await execute(planOf(onePackage), org);
+
+        expect(ok, isTrue);
+        expect(org.posts, hasLength(1));
+        expect(
+          events.any((e) => e['event'] == 'step.failed'),
+          isFalse,
+          reason: 'a check that broke is not a step that failed',
+        );
+      },
+    );
+
+    test('asks for a key-protected version with its key', () async {
+      final org = FakeOrg(wanted: (0, 1, 0, 33));
+
+      await execute(
+        planOf(
+          '{"schemaVersion": 1, "steps": [{"kind": "installPackage", "name": "Prose", '
+          '"packageVersionId": "04tPl000000SgqjIAC", "requiresInstallationKey": true}]}',
+        ),
+        org,
+        config: configOf(keys: {0: 'sekrit'}),
+      );
+
+      expect(
+        Uri.decodeQueryComponent(org.queries.first),
+        contains("InstallationKey = 'sekrit'"),
+      );
     });
 
     test('gives up on an install that never finishes', () async {

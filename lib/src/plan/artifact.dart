@@ -68,6 +68,8 @@ class Plan {
 
 /// A kind cirrus cannot run is refused before the install starts: a plan half-run is the one
 /// outcome with no clean recovery.
+final _subscriberPackageVersion = RegExp(r'^04t[A-Za-z0-9]{12,15}$');
+
 sealed class PlanStep {
   final String name;
 
@@ -84,6 +86,14 @@ sealed class PlanStep {
         final packageVersionId = raw['packageVersionId'];
         if (packageVersionId is! String || packageVersionId.isEmpty) {
           return Left(Failure('Step $index ($name) has no packageVersionId.'));
+        }
+        if (!_subscriberPackageVersion.hasMatch(packageVersionId)) {
+          return Left(
+            Failure(
+              'Step $index ($name) names "$packageVersionId", which is not a '
+              'subscriber package version id.',
+            ),
+          );
         }
         return Right(
           InstallPackage(

@@ -194,7 +194,7 @@ jobs:
             "schemaVersion": 1,
             "product": "smoke",
             "version": "0.0.1",
-            "steps": [{"kind": "installPackage", "name": "Nothing", "packageVersionId": "04t0"}]
+            "steps": [{"kind": "installPackage", "name": "Nothing", "packageVersionId": "04tRb000005Y0txIAC"}]
           }
           PLAN
 
