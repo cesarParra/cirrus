@@ -17,7 +17,9 @@
     "orgs": {
       "description": "The scratch orgs this project creates, keyed by the name you refer to them by.",
       "type": "object",
-      "propertyNames": { "$ref": "#/$defs/name" },
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
       "additionalProperties": {
         "$ref": "#/$defs/org"
       }
@@ -25,7 +27,9 @@
     "commands": {
       "description": "The commands this project runs, keyed by the name `cirrus run` takes.",
       "type": "object",
-      "propertyNames": { "$ref": "#/$defs/name" },
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
       "additionalProperties": {
         "$ref": "#/$defs/command"
       }
@@ -33,9 +37,21 @@
     "flows": {
       "description": "Sequences of steps, run in order, stopping at the first step that fails.",
       "type": "object",
-      "propertyNames": { "$ref": "#/$defs/name" },
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
       "additionalProperties": {
         "$ref": "#/$defs/flow"
+      }
+    },
+    "plans": {
+      "description": "Install plans `cirrus plan resolve` pins into an artifact. A repository with none has one derived from sfdx-project.json instead: its own package is installed, and everything that package depends on is required.",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/plan"
       }
     }
   },
@@ -173,6 +189,76 @@
           }
         }
       ]
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "steps"
+      ],
+      "properties": {
+        "title": {
+          "description": "What this plan is called where a customer is shown it.",
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/planStep"
+          }
+        }
+      }
+    },
+    "planStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "installPackage"
+          ],
+          "not": {
+            "required": [
+              "requirePackages"
+            ]
+          }
+        },
+        {
+          "required": [
+            "requirePackages",
+            "packages"
+          ],
+          "not": {
+            "required": [
+              "installPackage"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "installPackage": {
+          "description": "A packageAliases key from sfdx-project.json. An alias naming a package takes its highest built version.",
+          "type": "string"
+        },
+        "requirePackages": {
+          "description": "A step that checks the org for packages it must already have, and never installs them.",
+          "type": "string"
+        },
+        "packages": {
+          "description": "Subscriber package version ids the org must already have. Named by id rather than alias: these are packages this repository does not build.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^04t[A-Za-z0-9]{12,15}$"
+          }
+        },
+        "description": {
+          "description": "What this step does, shown to a customer before the install starts.",
+          "type": "string"
+        }
+      }
     }
   }
 }

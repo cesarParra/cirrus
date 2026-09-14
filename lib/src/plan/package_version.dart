@@ -25,6 +25,17 @@ class PackageVersion implements Comparable<PackageVersion> {
     );
   }
 
+  /// A `packageAliases` label: `0.1.0-33`, or `1.52.0` for one carrying no build number.
+  static PackageVersion? parse(String label) {
+    final match = RegExp(
+      r'^(\d+)\.(\d+)\.(\d+)(?:[-.](\d+))?$',
+    ).firstMatch(label.trim());
+    if (match == null) return null;
+
+    int at(int group) => int.parse(match.group(group) ?? '0');
+    return PackageVersion(at(1), at(2), at(3), at(4));
+  }
+
   @override
   int compareTo(PackageVersion other) {
     for (final pair in [

@@ -1,5 +1,6 @@
 import 'package:cirrus/src/commands/init/init_template.dart';
 import 'package:cirrus/src/config.dart';
+import 'package:cirrus/src/plan/resolve.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
@@ -265,7 +266,7 @@ commands:
     expect(defined, nameOnACommandLine.pattern);
 
     const reference = {r'$ref': r'#/$defs/name'};
-    for (final section in ['orgs', 'commands', 'flows']) {
+    for (final section in ['orgs', 'commands', 'flows', 'plans']) {
       final propertyNames = schema['properties'][section]['propertyNames'];
       expect(propertyNames, reference, reason: '$section keys are typed too');
     }
@@ -283,6 +284,8 @@ commands:
       'an org': ScratchOrgDefinition.keys,
       'a command': NamedCommand.keys,
       'a flow': Flow.keys,
+      'a plan': PlanDefinition.keys,
+      'a plan step': PlanStepDefinition.keys,
     };
 
     final declared = <String, Set<String>>{
@@ -295,6 +298,11 @@ commands:
               .keys
               .toSet(),
       'a flow': (defs['flow']['properties'] as Map<String, dynamic>).keys
+          .toSet(),
+      'a plan': (defs['plan']['properties'] as Map<String, dynamic>).keys
+          .toSet(),
+      'a plan step': (defs['planStep']['properties'] as Map<String, dynamic>)
+          .keys
           .toSet(),
     };
 
