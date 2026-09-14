@@ -103,6 +103,28 @@ sealed class PlanStep {
                 raw['requiresInstallationKey'] as bool? ?? false,
           ),
         );
+      case 'requirePackages':
+        final listed = raw['packages'];
+        if (listed is! List || listed.isEmpty) {
+          return Left(Failure('Step $index ($name) names no packages.'));
+        }
+
+        final packages = <String>[];
+        for (final package in listed) {
+          if (package is! String ||
+              !_subscriberPackageVersion.hasMatch(package)) {
+            return Left(
+              Failure(
+                'Step $index ($name) requires "$package", which is not a '
+                'subscriber package version id.',
+              ),
+            );
+          }
+          packages.add(package);
+        }
+
+        return Right(RequirePackages(name: name, packages: packages));
+
       case final kind:
         return Left(
           Failure(
@@ -122,4 +144,12 @@ class InstallPackage extends PlanStep {
     required this.packageVersionId,
     required this.requiresInstallationKey,
   }) : super(name);
+}
+
+/// Packages the org must already have. Checked, never installed.
+class RequirePackages extends PlanStep {
+  final List<String> packages;
+
+  const RequirePackages({required String name, required this.packages})
+    : super(name);
 }
