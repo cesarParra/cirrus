@@ -219,8 +219,17 @@
             "installPackage"
           ],
           "not": {
-            "required": [
-              "requirePackages"
+            "anyOf": [
+              {
+                "required": [
+                  "requirePackages"
+                ]
+              },
+              {
+                "required": [
+                  "packages"
+                ]
+              }
             ]
           }
         },

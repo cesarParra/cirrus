@@ -15,9 +15,15 @@ typedef Known = ({String packageId, String name, String wanted, String? has});
 class PackagesOrg implements Org {
   final Map<String, Known> world;
   final bool namesAreUnreadable;
+  final bool installedIsUnreadable;
   final List<(String, Map<String, dynamic>)> posts = [];
+  final List<String> queries = [];
 
-  PackagesOrg(this.world, {this.namesAreUnreadable = false});
+  PackagesOrg(
+    this.world, {
+    this.namesAreUnreadable = false,
+    this.installedIsUnreadable = false,
+  });
 
   @override
   Future<OrgResponse> post(String path, Map<String, dynamic> body) async {
@@ -28,6 +34,7 @@ class PackagesOrg implements Org {
   @override
   Future<OrgResponse> get(String path) async {
     final soql = Uri.decodeQueryComponent(path.split('q=').last);
+    queries.add(soql);
 
     if (soql.contains('FROM SubscriberPackageVersion')) {
       final entry = world.entries
@@ -57,6 +64,8 @@ class PackagesOrg implements Org {
               ],
       });
     }
+
+    if (installedIsUnreadable) return const OrgResponse(500, {});
 
     final held = world.values
         .where((known) => soql.contains(known.packageId) && known.has != null)
@@ -91,15 +100,19 @@ String planRequiring(List<String> ids) => jsonEncode({
   ],
 });
 
-Future<(List<Map<String, dynamic>>, bool)> run(String json, Org org) async {
+Future<(List<Map<String, dynamic>>, bool)> run(
+  String json,
+  Org org, {
+  Map<int, String> keys = const {},
+}) async {
   final out = StringBuffer();
   final ok = await PlanExecution(
     plan: (Plan.parse(json) as Right<dynamic, Plan>).value,
-    config: const RunConfig(
+    config: RunConfig(
       instanceUrl: 'https://example.my.salesforce.com',
       accessToken: 'token',
       apiVersion: '67.0',
-      installationKeys: {},
+      installationKeys: keys,
     ),
     org: org,
     events: Events(out),
@@ -230,6 +243,66 @@ void main() {
       expect(
         events.firstWhere((e) => e['event'] == 'step.failed')['message'],
         contains(framework),
+      );
+    });
+
+    test('does not call a refused query an absent package', () async {
+      final org = PackagesOrg({
+        framework: (
+          packageId: '033a',
+          name: 'Fonteva Framework',
+          wanted: '1.0.0.1',
+          has: '1.0.0.1',
+        ),
+      }, installedIsUnreadable: true);
+
+      final (events, ok) = await run(planRequiring([framework]), org);
+      final failed = events.firstWhere((e) => e['event'] == 'step.failed');
+
+      expect(ok, isFalse);
+      expect(
+        failed['message'],
+        isNot(contains('not installed')),
+        reason: 'a query that broke is not evidence the package is absent',
+      );
+      expect(failed['message'], contains('could not be asked'));
+    });
+
+    test('asks the name only when it has something to report', () async {
+      final org = PackagesOrg({
+        framework: (
+          packageId: '033a',
+          name: 'Fonteva Framework',
+          wanted: '1.0.0.1',
+          has: '1.0.0.1',
+        ),
+      });
+
+      await run(planRequiring([framework]), org);
+
+      expect(
+        org.queries.where((soql) => soql.contains('FROM SubscriberPackage ')),
+        isEmpty,
+        reason: 'a satisfied package needs no name for a message nobody sees',
+      );
+    });
+
+    test('asks about a key-protected package with the step\'s key', () async {
+      final org = PackagesOrg({
+        framework: (
+          packageId: '033a',
+          name: 'Fonteva Framework',
+          wanted: '1.0.0.1',
+          has: '1.0.0.1',
+        ),
+      });
+
+      await run(planRequiring([framework]), org, keys: {0: 'the key'});
+
+      expect(
+        org.queries.first,
+        contains("InstallationKey = 'the key'"),
+        reason: 'a protected version answers nothing without its key',
       );
     });
 

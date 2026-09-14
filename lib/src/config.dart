@@ -1,5 +1,6 @@
 import 'package:yaml/yaml.dart';
 
+import 'plan/artifact.dart';
 import 'plan/resolve.dart';
 
 /// The file cirrus reads. Named once, so that every message about it agrees.
@@ -477,6 +478,14 @@ PlanStepDefinition _planStepOf(String plan, dynamic raw) {
       throw "'packages' in the plan '$plan' is a list of package version ids.",
   };
 
+  for (final package in packages) {
+    if (!subscriberPackageVersionId.hasMatch(package)) {
+      throw "'$package' in the plan '$plan' is not a package version id. A "
+          "required package is named by its id, starting '04t', because it is "
+          'not a package this repository builds.';
+    }
+  }
+
   if (requires != null && packages.isEmpty) {
     throw "'$requires' in the plan '$plan' needs 'packages', a list of the "
         'package version ids the org must already have.';
@@ -584,6 +593,7 @@ class Config {
       for (final command in commands) ('command', command.name),
       for (final flow in flows) ('flow', flow.name),
       for (final org in scratchOrgDefinitions) ('org', org.name),
+      for (final plan in plans) ('plan', plan.name),
     ]) {
       if (!nameOnACommandLine.hasMatch(name)) {
         throw "'$name' cannot name a $kind: a name is letters, digits, '-' and '_', starting "

@@ -120,11 +120,10 @@ class ResolvedPlan {
 /// A concrete `04t`, and the version alias it came from when resolution picked one.
 typedef Pinned = ({String id, String? version});
 
-const _subscriberPackageVersion = '04t';
 const _package = '0Ho';
 
 Either<Failure, Pinned> pinned(SfdxProjectJson project, String alias) {
-  if (alias.startsWith(_subscriberPackageVersion)) {
+  if (subscriberPackageVersionId.hasMatch(alias)) {
     return Right((id: alias, version: null));
   }
 
@@ -140,6 +139,15 @@ Either<Failure, Pinned> pinned(SfdxProjectJson project, String alias) {
   }
 
   if (named.startsWith(_package)) return _highestVersionOf(aliases, alias);
+
+  if (!subscriberPackageVersionId.hasMatch(named)) {
+    return Left(
+      Failure(
+        "The packageAlias '$alias' maps to \"$named\", which is neither a "
+        'package nor a subscriber package version id.',
+      ),
+    );
+  }
 
   final at = alias.indexOf('@');
   return Right((id: named, version: at < 0 ? null : alias.substring(at + 1)));
@@ -179,8 +187,9 @@ Either<Failure, ResolvedPlan> resolve({
   required PlanDefinition? plan,
   required ResolvedFrom from,
 }) {
-  final own = _packageThisRepoBuilds(project);
-  if (own == null) {
+  final directory = _directoryThisRepoBuilds(project);
+  final own = directory?.package;
+  if (directory == null || own == null) {
     return Left(
       Failure(
         'sfdx-project.json has no packageDirectory naming a package, so there '
@@ -191,17 +200,27 @@ Either<Failure, ResolvedPlan> resolve({
 
   final built = pinned(project, own);
   if (built is Left<Failure, Pinned>) return Left(built.value);
+
   final version = (built as Right<Failure, Pinned>).value.version;
+  if (version == null) {
+    return Left(
+      Failure(
+        "cirrus cannot tell what version '$own' is, so the artifact would have "
+        'no label. sfdx-project.json maps it straight to a package version id '
+        "rather than to a '$own@…' alias.",
+      ),
+    );
+  }
 
   final steps = plan == null
-      ? _derived(project, own)
+      ? _derived(project, directory, own)
       : _asWritten(project, plan);
   if (steps is Left<Failure, List<ResolvedStep>>) return Left(steps.value);
 
   return Right(
     ResolvedPlan(
       product: own.toLowerCase(),
-      version: version ?? '',
+      version: version,
       title: plan?.title ?? own,
       steps: (steps as Right<Failure, List<ResolvedStep>>).value,
       from: from,
@@ -214,12 +233,13 @@ Either<Failure, ResolvedPlan> resolve({
 /// everything it depends on without ever installing it.
 Either<Failure, List<ResolvedStep>> _derived(
   SfdxProjectJson project,
+  PackageDirectory directory,
   String own,
 ) {
   final steps = <ResolvedStep>[];
   final required = <String>[];
 
-  for (final dependency in _dependenciesOf(project)) {
+  for (final dependency in _dependenciesOf(directory)) {
     final found = pinned(project, dependency);
     if (found is Left<Failure, Pinned>) return Left(found.value);
     required.add((found as Right<Failure, Pinned>).value.id);
@@ -294,7 +314,7 @@ Either<Failure, List<ResolvedStep>> _asWritten(
   return Right(steps);
 }
 
-String? _packageThisRepoBuilds(SfdxProjectJson project) {
+PackageDirectory? _directoryThisRepoBuilds(SfdxProjectJson project) {
   final directories = project.packageDirectories.where(
     (directory) => directory.package != null,
   );
@@ -303,17 +323,17 @@ String? _packageThisRepoBuilds(SfdxProjectJson project) {
   final byDefault = directories.where(
     (directory) => directory.extra['default'] == true,
   );
-  return (byDefault.firstOrNull ?? directories.first).package;
+  return byDefault.firstOrNull ?? directories.first;
 }
 
-Iterable<String> _dependenciesOf(SfdxProjectJson project) sync* {
-  for (final directory in project.packageDirectories) {
-    final declared = directory.extra['dependencies'];
-    if (declared is! List) continue;
+/// Only the directory whose package is being installed. Another directory's dependencies belong to
+/// a package this plan never touches.
+Iterable<String> _dependenciesOf(PackageDirectory directory) sync* {
+  final declared = directory.extra['dependencies'];
+  if (declared is! List) return;
 
-    for (final dependency in declared) {
-      final named = dependency is Map ? dependency['package'] : null;
-      if (named is String) yield named;
-    }
+  for (final dependency in declared) {
+    final named = dependency is Map ? dependency['package'] : null;
+    if (named is String) yield named;
   }
 }

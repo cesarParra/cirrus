@@ -229,6 +229,96 @@ void main() {
     });
   });
 
+  group('what a derived plan will not do', () {
+    test('requires only what the package it installs depends on', () {
+      final alsoTests = projectFrom('''
+        {
+          "packageDirectories": [
+            {
+              "path": "neverlapse",
+              "default": true,
+              "package": "NeverLapse",
+              "dependencies": [{ "package": "04t3j000000wz45AAA" }]
+            },
+            {
+              "path": "tests",
+              "package": "NeverLapseTests",
+              "dependencies": [{ "package": "TestHelper@2.0.0-1" }]
+            }
+          ],
+          "packageAliases": {
+            "NeverLapse": "0HoPl00000VYtppKAD",
+            "NeverLapse@0.1.0-2": "04tPl000000TMMvIAO",
+            "TestHelper@2.0.0-1": "04tRb000005Y0txIAC"
+          }
+        }
+      ''');
+
+      final steps =
+          resolve(
+                project: alsoTests,
+                plan: null,
+                from: nowhere,
+              ).getOrElse((f) => fail(f.message)).toJson()['steps']
+              as List<dynamic>;
+
+      expect(steps.first['packages'], ['04t3j000000wz45AAA']);
+    });
+  });
+
+  group('an artifact that could not be labelled', () {
+    test('is refused rather than published with an empty version', () {
+      final unlabelled = projectFrom('''
+        {
+          "packageDirectories": [{"path": "x", "default": true, "package": "Solo"}],
+          "packageAliases": {"Solo": "04tPl000000000000A"}
+        }
+      ''');
+
+      expect(
+        resolve(
+          project: unlabelled,
+          plan: null,
+          from: nowhere,
+        ).getLeft().toNullable()?.message,
+        allOf(contains('Solo'), contains('version')),
+      );
+    });
+
+    test('names the package it could not label, not a step it never read', () {
+      final unbuilt = projectFrom('''
+        {
+          "packageDirectories": [{"path": "x", "default": true, "package": "Solo"}],
+          "packageAliases": {"Solo": "0HoPl00000000000AA", "Dep@1.0.0-1": "04tPl000000000000A"}
+        }
+      ''');
+
+      final message = resolve(
+        project: unbuilt,
+        plan: const PlanDefinition(
+          name: 'install',
+          steps: [PlanStepDefinition(installPackage: 'Dep@1.0.0-1')],
+        ),
+        from: nowhere,
+      ).getLeft().toNullable()?.message;
+
+      expect(message, contains('Solo'));
+    });
+  });
+
+  group('an alias that maps to something that is not a version', () {
+    test('is refused at resolve, not left for the install to discover', () {
+      final wrong = projectFrom(
+        '{"packageDirectories":[],"packageAliases":{"Odd":"033F0000000Fn6dIAC"}}',
+      );
+
+      expect(
+        pinned(wrong, 'Odd').getLeft().toNullable()?.message,
+        contains('033F0000000Fn6dIAC'),
+      );
+    });
+  });
+
   group('what the artifact records about itself', () {
     test('is readable by the cirrus that has to run it', () {
       final json = resolve(

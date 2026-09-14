@@ -106,6 +106,32 @@ plans:
       );
     });
 
+    test('refuse a required package that is not a version id', () {
+      expect(
+        () => parse("""
+plans:
+  install:
+    steps:
+      - requirePackages: Fonteva
+        packages: [Fonteva@1.2.0-1]
+      - installPackage: NeverLapse
+"""),
+        throwsA(contains('Fonteva@1.2.0-1')),
+      );
+    });
+
+    test('refuse a name that could not survive being a subcommand', () {
+      expect(
+        () => parse("""
+plans:
+  my plan:
+    steps:
+      - installPackage: Prose
+"""),
+        throwsA(contains('my plan')),
+      );
+    });
+
     test('refuse a key cirrus does not read', () {
       expect(
         () => parse("""

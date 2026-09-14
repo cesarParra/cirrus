@@ -122,21 +122,35 @@ class PlanExecution {
     final unanswerable = <String>[];
 
     for (final packageVersionId in step.packages) {
-      final wanted = await _versionBehind(packageVersionId, index);
+      final wanted = await _versionBehind(
+        packageVersionId,
+        index,
+        key: config.installationKeys[index],
+      );
       if (wanted == null) {
         unanswerable.add(packageVersionId);
         continue;
       }
 
-      final installed = await _installedVersionOf(wanted.packageId, index);
-      final name = await _nameOf(wanted.packageId, index) ?? packageVersionId;
+      final asked = await _installedVersionOf(wanted.packageId);
 
-      if (installed == null) {
-        absent.add(name);
-      } else if (!installed.isAtLeast(wanted.version)) {
-        tooOld.add('$name is at $installed, and ${wanted.version} is needed');
+      Future<String> naming() async =>
+          await _nameOf(wanted.packageId, index) ?? packageVersionId;
+
+      if (!asked.answered) {
+        unanswerable.add(await naming());
+      } else if (asked.version == null) {
+        absent.add(await naming());
+      } else if (!asked.version!.isAtLeast(wanted.version)) {
+        tooOld.add(
+          '${await naming()} is at ${asked.version}, and ${wanted.version} '
+          'is needed',
+        );
       } else {
-        events.log(index, '$name $installed satisfies ${wanted.version}');
+        events.log(
+          index,
+          '${wanted.packageId} ${asked.version} satisfies ${wanted.version}',
+        );
       }
     }
 
@@ -179,7 +193,7 @@ class PlanExecution {
     final wanted = await _versionBehind(step.packageVersionId, index, key: key);
     if (wanted == null) return null;
 
-    final installed = await _installedVersionOf(wanted.packageId, index);
+    final installed = (await _installedVersionOf(wanted.packageId)).version;
     if (installed == null || !installed.isAtLeast(wanted.version)) return null;
 
     events.log(
@@ -212,17 +226,21 @@ class PlanExecution {
     return (packageId: packageId, version: version);
   }
 
-  Future<PackageVersion?> _installedVersionOf(
+  /// `answered: false` is a query that broke, which is not evidence a package is absent.
+  Future<({bool answered, PackageVersion? version})> _installedVersionOf(
     String packageId,
-    int index,
   ) async {
-    return PackageVersion.from(
-      (await _one(
-            'SELECT SubscriberPackageVersion.MajorVersion, SubscriberPackageVersion.MinorVersion, '
-            'SubscriberPackageVersion.PatchVersion, SubscriberPackageVersion.BuildNumber '
-            "FROM InstalledSubscriberPackage WHERE SubscriberPackageId = '$packageId'",
-          ))?['SubscriberPackageVersion']
-          as Map<String, dynamic>?,
+    final asked = await _ask(
+      'SELECT SubscriberPackageVersion.MajorVersion, SubscriberPackageVersion.MinorVersion, '
+      'SubscriberPackageVersion.PatchVersion, SubscriberPackageVersion.BuildNumber '
+      "FROM InstalledSubscriberPackage WHERE SubscriberPackageId = '$packageId'",
+    );
+
+    return (
+      answered: asked.ok,
+      version: PackageVersion.from(
+        asked.record?['SubscriberPackageVersion'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -265,16 +283,19 @@ class PlanExecution {
     _ => '${parts.take(parts.length - 1).join(', ')} and ${parts.last}',
   };
 
-  Future<Map<String, dynamic>?> _one(String soql) async {
+  Future<Map<String, dynamic>?> _one(String soql) async =>
+      (await _ask(soql)).record;
+
+  Future<({bool ok, Map<String, dynamic>? record})> _ask(String soql) async {
     final response = await org.get(
       '$_tooling/query?q=${Uri.encodeQueryComponent(soql)}',
     );
-    if (!response.ok) return null;
+    if (!response.ok) return (ok: false, record: null);
 
     final records = response.body['records'];
-    if (records is! List || records.isEmpty) return null;
+    if (records is! List || records.isEmpty) return (ok: true, record: null);
 
-    return records.first as Map<String, dynamic>;
+    return (ok: true, record: records.first as Map<String, dynamic>);
   }
 
   Future<_Outcome> _awaitInstall(
