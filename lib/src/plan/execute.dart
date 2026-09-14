@@ -212,7 +212,10 @@ class PlanExecution {
     return (packageId: packageId, version: version);
   }
 
-  Future<PackageVersion?> _installedVersionOf(String packageId, int index) async {
+  Future<PackageVersion?> _installedVersionOf(
+    String packageId,
+    int index,
+  ) async {
     return PackageVersion.from(
       (await _one(
             'SELECT SubscriberPackageVersion.MajorVersion, SubscriberPackageVersion.MinorVersion, '

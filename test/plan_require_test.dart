@@ -50,9 +50,11 @@ class PackagesOrg implements Org {
           .where((known) => soql.contains(known.packageId))
           .firstOrNull;
       return OrgResponse(200, {
-        'records': entry == null ? [] : [
-          {'Name': entry.name},
-        ],
+        'records': entry == null
+            ? []
+            : [
+                {'Name': entry.name},
+              ],
       });
     }
 

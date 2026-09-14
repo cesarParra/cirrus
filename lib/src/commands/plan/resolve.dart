@@ -61,7 +61,9 @@ class Resolve extends Command {
 
   /// Machine-readable on stdout, so that a caller can pipe it. Nothing else is written there.
   Either<Failure, String> _write(Either<Failure, Map<String, dynamic>> result) {
-    if (result is Left<Failure, Map<String, dynamic>>) return Left(result.value);
+    if (result is Left<Failure, Map<String, dynamic>>) {
+      return Left(result.value);
+    }
 
     final json = const JsonEncoder.withIndent(
       '  ',

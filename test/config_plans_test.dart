@@ -74,10 +74,9 @@ plans:
 
     test('report a step that names neither thing a step can be', () {
       expect(
-        () => parse('plans:\n  install:\n    steps:\n      - description: hi\n'),
-        throwsA(
-          allOf(contains('installPackage'), contains('requirePackages')),
-        ),
+        () =>
+            parse('plans:\n  install:\n    steps:\n      - description: hi\n'),
+        throwsA(allOf(contains('installPackage'), contains('requirePackages'))),
       );
     });
 

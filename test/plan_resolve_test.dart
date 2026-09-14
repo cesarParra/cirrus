@@ -75,10 +75,10 @@ void main() {
     });
 
     test('an alias pointing straight at an id needs no resolution', () {
-      expect(
-        pinned(prose, 'Expression').getOrElse((f) => fail(f.message)),
-        (id: '04tRb000005Y0txIAC', version: null),
-      );
+      expect(pinned(prose, 'Expression').getOrElse((f) => fail(f.message)), (
+        id: '04tRb000005Y0txIAC',
+        version: null,
+      ));
     });
 
     test('an alias nothing defines says so by name', () {
@@ -133,9 +133,11 @@ void main() {
 
     test('never installs a package it did not build', () {
       final steps =
-          resolve(project: neverlapse, plan: null, from: nowhere)
-                  .getOrElse((f) => fail(f.message))
-                  .toJson()['steps']
+          resolve(
+                project: neverlapse,
+                plan: null,
+                from: nowhere,
+              ).getOrElse((f) => fail(f.message)).toJson()['steps']
               as List<dynamic>;
 
       final installed = steps
@@ -155,9 +157,11 @@ void main() {
       ''');
 
       final steps =
-          resolve(project: alone, plan: null, from: nowhere)
-                  .getOrElse((f) => fail(f.message))
-                  .toJson()['steps']
+          resolve(
+                project: alone,
+                plan: null,
+                from: nowhere,
+              ).getOrElse((f) => fail(f.message)).toJson()['steps']
               as List<dynamic>;
 
       expect(steps.map((step) => step['kind']), ['installPackage']);
@@ -165,37 +169,40 @@ void main() {
   });
 
   group('a repository with a plan', () {
-    test('installs the dependency the plan names, in the order it names it', () {
-      final resolved = resolve(
-        project: prose,
-        plan: const PlanDefinition(
-          name: 'install',
-          title: 'Install Prose',
-          steps: [
-            PlanStepDefinition(
-              installPackage: 'Expression',
-              description: 'The formula engine Prose evaluates with.',
-            ),
-            PlanStepDefinition(installPackage: 'Prose'),
-          ],
-        ),
-        from: nowhere,
-      ).getOrElse((failure) => fail(failure.message));
+    test(
+      'installs the dependency the plan names, in the order it names it',
+      () {
+        final resolved = resolve(
+          project: prose,
+          plan: const PlanDefinition(
+            name: 'install',
+            title: 'Install Prose',
+            steps: [
+              PlanStepDefinition(
+                installPackage: 'Expression',
+                description: 'The formula engine Prose evaluates with.',
+              ),
+              PlanStepDefinition(installPackage: 'Prose'),
+            ],
+          ),
+          from: nowhere,
+        ).getOrElse((failure) => fail(failure.message));
 
-      expect(resolved.toJson()['steps'], [
-        {
-          'kind': 'installPackage',
-          'name': 'Expression',
-          'description': 'The formula engine Prose evaluates with.',
-          'packageVersionId': '04tRb000005Y0txIAC',
-        },
-        {
-          'kind': 'installPackage',
-          'name': 'Prose',
-          'packageVersionId': '04tPl000000SgqjIAC',
-        },
-      ]);
-    });
+        expect(resolved.toJson()['steps'], [
+          {
+            'kind': 'installPackage',
+            'name': 'Expression',
+            'description': 'The formula engine Prose evaluates with.',
+            'packageVersionId': '04tRb000005Y0txIAC',
+          },
+          {
+            'kind': 'installPackage',
+            'name': 'Prose',
+            'packageVersionId': '04tPl000000SgqjIAC',
+          },
+        ]);
+      },
+    );
 
     test('takes the requirements the plan lists, by id', () {
       final resolved = resolve(

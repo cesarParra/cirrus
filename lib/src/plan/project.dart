@@ -70,7 +70,9 @@ Either<Failure, PlanDefinition?> _chosen(
   if (plans.isEmpty) return const Right(null);
   if (plans.length == 1) return Right(plans.single);
 
-  final byConvention = plans.where((plan) => plan.name == 'install').firstOrNull;
+  final byConvention = plans
+      .where((plan) => plan.name == 'install')
+      .firstOrNull;
   if (byConvention != null) return Right(byConvention);
 
   return Left(
@@ -84,9 +86,7 @@ Either<Failure, PlanDefinition?> _chosen(
 Either<Failure, SfdxProjectJson> _projectIn(String directory) {
   final file = File('$directory/$sfdxProjectFileName');
   if (!file.existsSync()) {
-    return Left(
-      Failure('There is no $sfdxProjectFileName in $directory.'),
-    );
+    return Left(Failure('There is no $sfdxProjectFileName in $directory.'));
   }
 
   try {
@@ -120,11 +120,11 @@ ResolvedFrom gitIn(String directory) => ResolvedFrom(
 
 String? _git(String directory, List<String> arguments) {
   try {
-    final result = Process.runSync(
-      'git',
-      ['-C', directory, ...arguments],
-      runInShell: false,
-    );
+    final result = Process.runSync('git', [
+      '-C',
+      directory,
+      ...arguments,
+    ], runInShell: false);
     if (result.exitCode != 0) return null;
 
     final said = '${result.stdout}'.trim();

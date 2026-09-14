@@ -86,17 +86,18 @@ plans:
     test('derives a plan when the repository names none', () {
       write('sfdx-project.json', sfdxProject);
 
-      final resolved = resolveIn(project.path, planName: null)
-          .getRight()
-          .toNullable()!;
+      final resolved = resolveIn(
+        project.path,
+        planName: null,
+      ).getRight().toNullable()!;
 
       expect(resolved.plan, 'derived');
       expect(resolved.product, 'neverlapse');
       expect(resolved.version, '0.1.0-2');
-      expect(
-        (resolved.toJson()['steps'] as List).map((step) => step['kind']),
-        ['requirePackages', 'installPackage'],
-      );
+      expect((resolved.toJson()['steps'] as List).map((step) => step['kind']), [
+        'requirePackages',
+        'installPackage',
+      ]);
     });
 
     test('uses the plan it is asked for', () {
@@ -113,15 +114,13 @@ plans:
       - installPackage: NeverLapse
 ''');
 
-      final resolved = resolveIn(project.path, planName: 'demo')
-          .getRight()
-          .toNullable()!;
+      final resolved = resolveIn(
+        project.path,
+        planName: 'demo',
+      ).getRight().toNullable()!;
 
       expect(resolved.plan, 'demo');
-      expect(
-        (resolved.toJson()['steps'] as List).first['name'],
-        'Fonteva',
-      );
+      expect((resolved.toJson()['steps'] as List).first['name'], 'Fonteva');
     });
 
     test('prefers the plan called install when asked for none', () {
