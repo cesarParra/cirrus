@@ -68,7 +68,7 @@ class Plan {
 
 /// A kind cirrus cannot run is refused before the install starts: a plan half-run is the one
 /// outcome with no clean recovery.
-final _subscriberPackageVersion = RegExp(r'^04t[A-Za-z0-9]{12,15}$');
+final subscriberPackageVersionId = RegExp(r'^04t[A-Za-z0-9]{12,15}$');
 
 sealed class PlanStep {
   final String name;
@@ -87,7 +87,7 @@ sealed class PlanStep {
         if (packageVersionId is! String || packageVersionId.isEmpty) {
           return Left(Failure('Step $index ($name) has no packageVersionId.'));
         }
-        if (!_subscriberPackageVersion.hasMatch(packageVersionId)) {
+        if (!subscriberPackageVersionId.hasMatch(packageVersionId)) {
           return Left(
             Failure(
               'Step $index ($name) names "$packageVersionId", which is not a '
@@ -103,6 +103,28 @@ sealed class PlanStep {
                 raw['requiresInstallationKey'] as bool? ?? false,
           ),
         );
+      case 'requirePackages':
+        final listed = raw['packages'];
+        if (listed is! List || listed.isEmpty) {
+          return Left(Failure('Step $index ($name) names no packages.'));
+        }
+
+        final packages = <String>[];
+        for (final package in listed) {
+          if (package is! String ||
+              !subscriberPackageVersionId.hasMatch(package)) {
+            return Left(
+              Failure(
+                'Step $index ($name) requires "$package", which is not a '
+                'subscriber package version id.',
+              ),
+            );
+          }
+          packages.add(package);
+        }
+
+        return Right(RequirePackages(name: name, packages: packages));
+
       case final kind:
         return Left(
           Failure(
@@ -122,4 +144,12 @@ class InstallPackage extends PlanStep {
     required this.packageVersionId,
     required this.requiresInstallationKey,
   }) : super(name);
+}
+
+/// Packages the org must already have. Checked, never installed.
+class RequirePackages extends PlanStep {
+  final List<String> packages;
+
+  const RequirePackages({required String name, required this.packages})
+    : super(name);
 }

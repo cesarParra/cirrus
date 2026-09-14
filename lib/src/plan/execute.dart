@@ -61,6 +61,8 @@ class PlanExecution {
       switch (step) {
         case InstallPackage():
           return await _installPackage(step, index);
+        case RequirePackages():
+          return await _requirePackages(step, index);
       }
     } catch (error) {
       return _Failed('${step.name} could not be reached.', {'error': '$error'});
@@ -92,7 +94,10 @@ class PlanExecution {
 
     if (!requested.ok) {
       return _Failed(
-        'Salesforce refused the install of ${step.name}.',
+        _saying(
+          'Salesforce refused the install of ${step.name}',
+          requested.body,
+        ),
         requested.body,
       );
     }
@@ -107,6 +112,63 @@ class PlanExecution {
     events.log(index, 'PackageInstallRequest $id');
 
     return _awaitInstall(id, step, index);
+  }
+
+  /// Nothing is installed and nothing is posted: the answer arrives in seconds, before a
+  /// `PackageInstallRequest` has been spent on an org that was never eligible.
+  Future<_Outcome> _requirePackages(RequirePackages step, int index) async {
+    final absent = <String>[];
+    final tooOld = <String>[];
+    final unanswerable = <String>[];
+
+    for (final packageVersionId in step.packages) {
+      final wanted = await _versionBehind(
+        packageVersionId,
+        index,
+        key: config.installationKeys[index],
+      );
+      if (wanted == null) {
+        unanswerable.add(packageVersionId);
+        continue;
+      }
+
+      final asked = await _installedVersionOf(wanted.packageId);
+
+      Future<String> naming() async =>
+          await _nameOf(wanted.packageId, index) ?? packageVersionId;
+
+      if (!asked.answered) {
+        unanswerable.add(await naming());
+      } else if (asked.version == null) {
+        absent.add(await naming());
+      } else if (!asked.version!.isAtLeast(wanted.version)) {
+        tooOld.add(
+          '${await naming()} is at ${asked.version}, and ${wanted.version} '
+          'is needed',
+        );
+      } else {
+        events.log(
+          index,
+          '${wanted.packageId} ${asked.version} satisfies ${wanted.version}',
+        );
+      }
+    }
+
+    final clauses = [
+      if (absent.isNotEmpty)
+        '${_and(absent)} ${absent.length == 1 ? 'is' : 'are'} not installed',
+      ...tooOld,
+      if (unanswerable.isNotEmpty)
+        'this org could not be asked about ${_and(unanswerable)}',
+    ];
+
+    if (clauses.isEmpty) return const _Ran();
+
+    return _Failed('This org is not ready: ${clauses.join('; ')}.', {
+      'absent': absent,
+      'tooOld': tooOld,
+      'unanswerable': unanswerable,
+    });
   }
 
   /// Null when the check cannot answer: a broken query is not evidence a package is absent.
@@ -128,6 +190,25 @@ class PlanExecution {
     int index,
     String? key,
   ) async {
+    final wanted = await _versionBehind(step.packageVersionId, index, key: key);
+    if (wanted == null) return null;
+
+    final installed = (await _installedVersionOf(wanted.packageId)).version;
+    if (installed == null || !installed.isAtLeast(wanted.version)) return null;
+
+    events.log(
+      index,
+      'Found ${wanted.packageId} at $installed, wanted ${wanted.version}',
+    );
+    return installed;
+  }
+
+  /// The package a version id belongs to, and the version it is.
+  Future<({String packageId, PackageVersion version})?> _versionBehind(
+    String packageVersionId,
+    int index, {
+    String? key,
+  }) async {
     // A key-protected version answers nothing without its key in the filter.
     final protectedBy = key == null || key.isEmpty
         ? ''
@@ -135,38 +216,86 @@ class PlanExecution {
 
     final asked = await _one(
       'SELECT SubscriberPackageId, MajorVersion, MinorVersion, PatchVersion, BuildNumber '
-      "FROM SubscriberPackageVersion WHERE Id = '${step.packageVersionId}'$protectedBy",
+      "FROM SubscriberPackageVersion WHERE Id = '$packageVersionId'$protectedBy",
     );
 
-    final wanted = PackageVersion.from(asked);
+    final version = PackageVersion.from(asked);
     final packageId = asked?['SubscriberPackageId'];
-    if (wanted == null || packageId is! String) return null;
+    if (version == null || packageId is! String) return null;
 
-    final installed = PackageVersion.from(
-      (await _one(
-            'SELECT SubscriberPackageVersion.MajorVersion, SubscriberPackageVersion.MinorVersion, '
-            'SubscriberPackageVersion.PatchVersion, SubscriberPackageVersion.BuildNumber '
-            "FROM InstalledSubscriberPackage WHERE SubscriberPackageId = '$packageId'",
-          ))?['SubscriberPackageVersion']
-          as Map<String, dynamic>?,
-    );
-
-    if (installed == null || !installed.isAtLeast(wanted)) return null;
-
-    events.log(index, 'Found $packageId at $installed, wanted $wanted');
-    return installed;
+    return (packageId: packageId, version: version);
   }
 
-  Future<Map<String, dynamic>?> _one(String soql) async {
+  /// `answered: false` is a query that broke, which is not evidence a package is absent.
+  Future<({bool answered, PackageVersion? version})> _installedVersionOf(
+    String packageId,
+  ) async {
+    final asked = await _ask(
+      'SELECT SubscriberPackageVersion.MajorVersion, SubscriberPackageVersion.MinorVersion, '
+      'SubscriberPackageVersion.PatchVersion, SubscriberPackageVersion.BuildNumber '
+      "FROM InstalledSubscriberPackage WHERE SubscriberPackageId = '$packageId'",
+    );
+
+    return (
+      answered: asked.ok,
+      version: PackageVersion.from(
+        asked.record?['SubscriberPackageVersion'] as Map<String, dynamic>?,
+      ),
+    );
+  }
+
+  /// Salesforce's own name for the package, so the message says "Fonteva PagesApi" and not an id.
+  Future<String?> _nameOf(String packageId, int index) async {
+    try {
+      final found = await _one(
+        "SELECT Name FROM SubscriberPackage WHERE Id = '$packageId'",
+      );
+      final name = found?['Name'];
+      return name is String && name.isNotEmpty ? name : null;
+    } catch (error) {
+      events.log(index, 'Could not read the name of $packageId: $error');
+      return null;
+    }
+  }
+
+  static String _saying(String summary, Object? reported) {
+    final said = _messagesIn(reported).toSet().join('; ');
+    return said.isEmpty ? '$summary.' : '$summary: $said';
+  }
+
+  static Iterable<String> _messagesIn(Object? reported) sync* {
+    switch (reported) {
+      case Map<String, dynamic> fields:
+        final message = fields['message'];
+        if (message is String && message.isNotEmpty) yield message;
+        for (final value in fields.values) {
+          if (value is Map || value is List) yield* _messagesIn(value);
+        }
+      case List<dynamic> items:
+        for (final item in items) {
+          yield* _messagesIn(item);
+        }
+    }
+  }
+
+  static String _and(List<String> parts) => switch (parts.length) {
+    1 => parts.single,
+    _ => '${parts.take(parts.length - 1).join(', ')} and ${parts.last}',
+  };
+
+  Future<Map<String, dynamic>?> _one(String soql) async =>
+      (await _ask(soql)).record;
+
+  Future<({bool ok, Map<String, dynamic>? record})> _ask(String soql) async {
     final response = await org.get(
       '$_tooling/query?q=${Uri.encodeQueryComponent(soql)}',
     );
-    if (!response.ok) return null;
+    if (!response.ok) return (ok: false, record: null);
 
     final records = response.body['records'];
-    if (records is! List || records.isEmpty) return null;
+    if (records is! List || records.isEmpty) return (ok: true, record: null);
 
-    return records.first as Map<String, dynamic>;
+    return (ok: true, record: records.first as Map<String, dynamic>);
   }
 
   Future<_Outcome> _awaitInstall(
@@ -196,8 +325,9 @@ class PlanExecution {
 
       if (status == 'SUCCESS') return const _Ran();
       if (status == 'ERROR') {
-        return _Failed('${step.name} failed to install.', {
-          'errors': polled.body['Errors'],
+        final errors = polled.body['Errors'];
+        return _Failed(_saying('${step.name} failed to install', errors), {
+          'errors': errors,
         });
       }
 

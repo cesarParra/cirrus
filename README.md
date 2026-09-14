@@ -222,6 +222,37 @@ Options:
 - `-p, --package` (required): The name of the package to get the version for. It must either be a package Id (starts with 0Ho), or the alias of the package Id as defined in the sfdx-project.json.
 - `-j, --sfdx-project-json-path`: Path to the sfdx-project.json file (default: current directory)
 
+#### `cirrus plan resolve`
+
+Pins a repository into a plan artifact. It reads the checkout and nothing else — no org, no Dev
+Hub, no network — so it runs anywhere the repository can be cloned.
+
+```bash
+cirrus plan resolve                              # in a checkout
+cirrus plan resolve --plan install -o plan.json
+cirrus plan resolve --list                       # what this repository offers
+```
+
+Options:
+- `--plan`: The plan in `cirrus.yaml` to resolve. One is derived without it.
+- `-C, --directory`: The checkout to read (default: the working directory).
+- `-o, --output`: Where to write the artifact (default: standard output).
+- `--list`: Report the plans this repository offers, and resolve nothing.
+
+**A repository that names no plans has one derived**: the package it builds is installed, and
+everything that package depends on becomes a `requirePackages` step. A derived plan therefore never
+installs a package the repository did not build. Installing a dependency rather than requiring it
+is what writing a `plans:` section is for.
+
+`--list` answers which of the two a repository is, before anything is resolved:
+
+```json
+{ "plans": ["install"], "derives": false }
+```
+
+An alias naming a package takes its highest built version, compared as a version rather than as a
+string — `0.1.0-33` is above `0.1.0-4`.
+
 #### `cirrus plan execute`
 
 Runs a published plan against an org and narrates it as JSON, for a server driving cirrus as a
@@ -286,6 +317,18 @@ caller parses lines without filtering.
 {"event":"step.failed","step":1,"message":"Prose failed to install.","detail":{}}
 {"event":"finished","status":"failed"}
 ```
+
+`requirePackages` is the other kind of step: packages the org must already have, checked and never
+installed. It asks the org about each one and either passes in seconds having touched nothing, or
+fails naming what is absent, using Salesforce's own name for the package — what an admin sees under
+Installed Packages.
+
+```
+{"event":"step.failed","step":0,"message":"This org is not ready: Spark, Engage and Charge are not installed.","detail":{"absent":["Spark","Engage","Charge"],"tooOld":[],"unanswerable":[]}}
+```
+
+Put it first in a plan and a customer whose org is not eligible learns so before a
+`PackageInstallRequest` has been spent on it.
 
 A step verifies before it acts. `installPackage` asks the org what it already has of the package,
 and skips when that is the asked-for version or newer — so re-running a plan against an org that is
@@ -547,6 +590,53 @@ flows:
       - command: test
       - command: coverage-report
 ```
+
+### Plans
+
+A plan is what `cirrus plan resolve` pins into an artifact, and it carries only what resolve cannot
+work out for itself: an order, and the words a customer reads.
+
+```yaml
+plans:
+  install:
+    title: Install Prose
+    steps:
+      - installPackage: Expression
+        description: The formula engine Prose evaluates with.
+      - installPackage: Prose
+```
+
+**This section is optional, and most repositories do not need it.** Without one, resolve derives a
+plan: the package this repository builds is installed, and everything it depends on is required.
+Write a `plans:` section when that reading is wrong — most often because a dependency is one you
+build and want installed, as `Expression` is above.
+
+Each step names its kind with its first key:
+
+- `installPackage: <alias>` installs a `packageAliases` key from `sfdx-project.json`. An alias
+  naming a package takes its highest built version; an alias naming a version takes that one.
+- `requirePackages: <name>` checks the org for packages it must already have, and takes `packages`,
+  a list of subscriber package version ids.
+
+```yaml
+plans:
+  install:
+    title: Install NeverLapse
+    steps:
+      - requirePackages: Fonteva
+        description: NeverLapse runs on Fonteva and cannot install without it.
+        packages:
+          - 04t3j000000wz45AAA
+          - 04t1J000000KefwQAC
+      - installPackage: NeverLapse
+```
+
+**A required package is named by its id, not by an alias.** These are packages this repository does
+not build: they do not move when you release, and there is no alias to keep in step with them.
+
+`description` is what a customer is shown for the step before the install starts. It lives here
+rather than in the artifact, so it is written once and carries into every version resolved
+afterwards.
 
 ## Platform Support
 

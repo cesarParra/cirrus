@@ -319,6 +319,53 @@ void main() {
       );
     });
 
+    test('says what Salesforce said, not only that it failed', () async {
+      final org = FakeOrg(
+        statuses: ['ERROR'],
+        errors: const {
+          'errors': [
+            {
+              'message':
+                  "Missing dependent package(s): 'Spark' version '124.4'",
+            },
+          ],
+        },
+      );
+      final (events, ok) = await execute(planOf(onePackage), org);
+
+      expect(ok, isFalse);
+      expect(
+        events.firstWhere((e) => e['event'] == 'step.failed')['message'],
+        contains("Missing dependent package(s): 'Spark' version '124.4'"),
+      );
+    });
+
+    test('says what Salesforce said when it refused the request too', () async {
+      final org = FakeOrg(
+        onPost: (_) => const OrgResponse(400, {
+          'errors': [
+            {'message': 'invalid id'},
+          ],
+        }),
+      );
+      final (events, _) = await execute(planOf(onePackage), org);
+
+      expect(
+        events.firstWhere((e) => e['event'] == 'step.failed')['message'],
+        contains('invalid id'),
+      );
+    });
+
+    test('falls back to its own words when Salesforce gave none', () async {
+      final org = FakeOrg(statuses: ['ERROR']);
+      final (events, _) = await execute(planOf(onePackage), org);
+
+      expect(
+        events.firstWhere((e) => e['event'] == 'step.failed')['message'],
+        contains('Prose'),
+      );
+    });
+
     test(
       'skips a package the org already has at the asked-for version',
       () async {

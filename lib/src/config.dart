@@ -1,5 +1,8 @@
 import 'package:yaml/yaml.dart';
 
+import 'plan/artifact.dart';
+import 'plan/resolve.dart';
+
 /// The file cirrus reads. Named once, so that every message about it agrees.
 const configFileName = 'cirrus.yaml';
 
@@ -409,10 +412,103 @@ class Flow {
   }
 }
 
+/// A named plan and the steps `cirrus plan resolve` pins into an artifact.
+///
+/// A repository with none has one derived instead, so a plan written with no steps is an error
+/// rather than a plan that does nothing.
+PlanDefinition _planOf(MapEntry<String, dynamic> entry) {
+  final definition = switch (entry.value) {
+    Map<String, dynamic> mapping => mapping,
+    _ => throw "The plan '${entry.key}' needs 'steps'.",
+  };
+
+  _onlyKeysCirrusReads(
+    definition,
+    "the plan '${entry.key}'",
+    PlanDefinition.keys,
+  );
+
+  final steps = _typed<List<dynamic>>(definition['steps'], 'steps', entry.key);
+  if (steps == null || steps.isEmpty) {
+    throw "The plan '${entry.key}' needs 'steps'.";
+  }
+
+  return PlanDefinition(
+    name: entry.key,
+    title: _typed<String>(definition['title'], 'title', entry.key),
+    steps: steps.map((step) => _planStepOf(entry.key, step)).toList(),
+  );
+}
+
+PlanStepDefinition _planStepOf(String plan, dynamic raw) {
+  final step = switch (raw) {
+    Map<String, dynamic> mapping => mapping,
+    _ =>
+      throw "A step of the plan '$plan' is 'installPackage: <alias>' or "
+          "'requirePackages: <name>'.",
+  };
+
+  _onlyKeysCirrusReads(
+    step,
+    "a step of the plan '$plan'",
+    PlanStepDefinition.keys,
+  );
+
+  final installs = _typed<String>(
+    step['installPackage'],
+    'installPackage',
+    plan,
+  );
+  final requires = _typed<String>(
+    step['requirePackages'],
+    'requirePackages',
+    plan,
+  );
+
+  if ((installs == null) == (requires == null)) {
+    final wrong = installs == null ? 'neither' : 'both';
+    throw "A step of the plan '$plan' is either 'installPackage' or "
+        "'requirePackages', and this one is $wrong.";
+  }
+
+  final packages = switch (step['packages']) {
+    null => <String>[],
+    List<dynamic> listed => listed.map((package) => '$package').toList(),
+    _ =>
+      throw "'packages' in the plan '$plan' is a list of package version ids.",
+  };
+
+  for (final package in packages) {
+    if (!subscriberPackageVersionId.hasMatch(package)) {
+      throw "'$package' in the plan '$plan' is not a package version id. A "
+          "required package is named by its id, starting '04t', because it is "
+          'not a package this repository builds.';
+    }
+  }
+
+  if (requires != null && packages.isEmpty) {
+    throw "'$requires' in the plan '$plan' needs 'packages', a list of the "
+        'package version ids the org must already have.';
+  }
+
+  if (installs != null && packages.isNotEmpty) {
+    throw "'packages' belongs to 'requirePackages', and '$installs' in the "
+        "plan '$plan' is an install.";
+  }
+
+  return PlanStepDefinition(
+    installPackage: installs,
+    requirePackages: requires,
+    packages: packages,
+    description: _typed<String>(step['description'], 'description', plan),
+  );
+}
+
 class Config {
   List<ScratchOrgDefinition> scratchOrgDefinitions;
   List<NamedCommand> commands;
   List<Flow> flows;
+  List<PlanDefinition> plans;
 
   /// The commands by the name they are keyed by. Built once: every name in the file is resolved
   /// through this, when the config is checked and again when it runs.
@@ -427,10 +523,15 @@ class Config {
   /// The command called [name], if there is one.
   NamedCommand? command(String name) => _byName[name];
 
+  /// The plan called [name], if there is one.
+  PlanDefinition? planNamed(String name) =>
+      plans.where((plan) => plan.name == name).firstOrNull;
+
   Config({
     required this.scratchOrgDefinitions,
     required this.commands,
     required this.flows,
+    this.plans = const [],
     this.defaultOrg,
   });
 
@@ -445,6 +546,7 @@ class Config {
     'orgs',
     'commands',
     'flows',
+    'plans',
   };
 
   factory Config.parse(Map<String, dynamic> unparsed) {
@@ -472,6 +574,7 @@ class Config {
       scratchOrgDefinitions: orgs,
       commands: _section(unparsed, 'commands', NamedCommand.parse),
       flows: _section(unparsed, 'flows', Flow.parse),
+      plans: _section(unparsed, 'plans', _planOf),
       defaultOrg: chosen,
     );
 
@@ -490,6 +593,7 @@ class Config {
       for (final command in commands) ('command', command.name),
       for (final flow in flows) ('flow', flow.name),
       for (final org in scratchOrgDefinitions) ('org', org.name),
+      for (final plan in plans) ('plan', plan.name),
     ]) {
       if (!nameOnACommandLine.hasMatch(name)) {
         throw "'$name' cannot name a $kind: a name is letters, digits, '-' and '_', starting "

@@ -1,6 +1,7 @@
 import 'package:args/command_runner.dart';
 
 import 'execute.dart';
+import 'resolve.dart';
 
 class PlanCommand extends Command {
   @override
@@ -11,5 +12,6 @@ class PlanCommand extends Command {
 
   PlanCommand() {
     addSubcommand(Execute());
+    addSubcommand(Resolve());
   }
 }
